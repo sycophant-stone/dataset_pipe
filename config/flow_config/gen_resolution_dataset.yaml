@@ -1,0 +1,19 @@
+{% set daily_work_dir = '%s/' % (data_dir) %}
+{% set dataset_path = '/ssd/hnren/Data/coco_300px_head' %}
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/
+
+- gen_size_dataset.gen_patches_voc2voc_format:
+    desc: 'gen patcehs voc format datasets'
+    cwd: {{dataset_path}}
+    input:
+      dataset_list: ['FID_DID_HEAD_CLEAN_1']
+      req_imgsize: 300
+      img_output_size: 300
+      gen_gt_rect: False
+
