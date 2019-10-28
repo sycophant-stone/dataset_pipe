@@ -1,5 +1,5 @@
 {% set daily_work_dir = '%s/' % (data_dir) %}
-{% set dataset_path = '/ssd/hnren/Data/coco_300px_head' %}
+{% set dataset_path = '%s/' % (baseline_dataset_dir) %}
 
 ---
 - utils.filesystem.ensure_dirs:

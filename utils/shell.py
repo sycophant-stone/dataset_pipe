@@ -53,9 +53,9 @@ def run_system_command_with_res(cmd_line, cwd='', ignore_err=False):
                 time.sleep(60)
                 continue
             if ignore_err:
-                print('%s %s %s' % (cmd_line, stdout, stderr))
+                print('ignore_err %s %s %s' % (cmd_line, stdout, stderr))
             else:
-                print('%s %s %s' % (cmd_line, stdout, stderr))
+                print('error %s %s %s' % (cmd_line, stdout, stderr))
                 raise Exception('Exception running command: \n%s\n%s\n%s' % (cmd_line, stdout, stderr))
             return None 
         return stdout 
@@ -65,7 +65,7 @@ def run_system_command_with_res(cmd_line, cwd='', ignore_err=False):
 def run_system_command(cmd_line, cwd='', ignore_err=False):
     hdfs_put_retry = 2
     while True:
-        print('%s %s', cwd, cmd_line)
+        print('%s %s'%(cwd, cmd_line))
         cur_cwd = os.getcwd()
         if cwd != '':
             os.chdir(cwd)
@@ -85,9 +85,9 @@ def run_system_command(cmd_line, cwd='', ignore_err=False):
                 time.sleep(60)
                 continue
             if ignore_err:
-                print('%s %s %s' % (cmd_line, stdout, stderr))
+                print('ignore error %s %s %s' % (cmd_line, stdout, stderr))
             else:
-                print('%s %s %s' % (cmd_line, stdout, stderr))
+                print('error %s %s %s' % (cmd_line, stdout, stderr))
                 raise Exception('Exception running command: \n%s\n%s\n%s' % (cmd_line, stdout, stderr))
             return False
         return True

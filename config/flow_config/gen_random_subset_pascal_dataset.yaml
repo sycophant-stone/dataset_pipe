@@ -1,0 +1,41 @@
+{% set daily_work_dir = '%s' % (data_dir) %}
+{% set dataset_path = '%s' % (baseline_dataset_dir) %}
+{% set daily_work_dir_parent = "/".join(daily_work_dir.split('/')[:-1]) %}
+{% set datset_dirname = daily_work_dir.split('/')[-1] %}
+{% set caffe_python_dir = '%s' % (caffe_python_dir) %}
+
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/
+      - {{daily_work_dir}}/JPEGImages
+      - {{daily_work_dir}}/Annotations
+
+- utils.shell.run_system_commands:
+    desc: 'prepare baseline data'
+    cwd: {{daily_work_dir}}
+    input:
+      cmd_lines:
+        - cp -rf {{dataset_path}}/JPEGImages  {{daily_work_dir}}/
+        - cp -rf {{dataset_path}}/Annotations  {{daily_work_dir}}/
+        - cp /ssd/hnren/Data/dataset_pipe/dataset_lib/labelmap_voc.prototxt {{daily_work_dir}}/
+        - cp /ssd/hnren/Data/dataset_pipe/process/pascal_process/create_* {{daily_work_dir}}/
+
+- process.pascal_process.cls.run:
+    desc: 'gen pascal ImageSet/Main'
+    cwd: {{daily_work_dir}}
+    input:
+      src_path: {{daily_work_dir}}
+
+- utils.shell.run_system_commands:
+    desc: 'creat list and data for pascal'
+    cwd: {{daily_work_dir}}
+    input:
+      cmd_lines:
+        - chmod a+x {{daily_work_dir}}/create_list.sh
+        - chmod a+x {{daily_work_dir}}/create_data.sh
+        - {{daily_work_dir}}/create_list.sh {{daily_work_dir_parent}} {{datset_dirname}}
+        - {{daily_work_dir}}/create_data.sh {{caffe_python_dir}} {{daily_work_dir_parent}} {{datset_dirname}} {{daily_work_dir}}/labelmap_voc.prototxt
