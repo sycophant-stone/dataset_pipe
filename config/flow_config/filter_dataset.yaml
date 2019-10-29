@@ -1,0 +1,32 @@
+{% set daily_work_dir = '%s' % (data_dir) %}
+{% set dataset_path = '%s' % (baseline_dataset_dir) %}
+{% set daily_work_dir_parent = "/".join(daily_work_dir.split('/')[:-1]) %}
+{% set datset_dirname = daily_work_dir.split('/')[-1] %}
+{% set datset_patches_dirname = datset_dirname+'_patches_int' %}
+{% set caffe_python_dir = '%s' % (caffe_python_dir) %}
+
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/random_filter_res
+      - {{daily_work_dir}}/random_filter_res/JPEGImages
+      - {{daily_work_dir}}/random_filter_res/Annotations
+
+- process.split_patches_pascal.filter_subset.run:
+    desc: 'randomly filt the origin set into a subset'
+    input:
+      src_origin_set_file: {{daily_work_dir}}/ImageSets/Main/train.txt
+      src_filter_ratio: 0.3
+      dst_subset_file: {{daily_work_dir}}/random_filter_res/subset_train.txt
+- process.split_patches_pascal.filter_subset.fill_content_for_subset:
+    desc: 'fill dst dir with given file descriped images and annos'
+    input:
+      src_subset_file: {{daily_work_dir}}/random_filter_res/subset_train.txt
+      src_dataset_images_dir: {{daily_work_dir}}/JPEGImages
+      src_dataset_annos_dir: {{daily_work_dir}}/Annotations
+    output:
+      dst_subset_image_dir: {{daily_work_dir}}/random_filter_res/JPEGImages
+      dst_subset_anno_dir: {{daily_work_dir}}/random_filter_res/Annotations
