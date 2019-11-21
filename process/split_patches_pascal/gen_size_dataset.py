@@ -222,7 +222,7 @@ def xcyctoxy(xc,yc,expand_sz,width,height):
     return xmin,ymin,xmax,ymax
 
 
-def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, gen_gt_rect=False):
+def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refine_rectangle_size=0.62, gen_gt_rect=False):
     '''
     crop image to patched image.
     :param img_path: the target image
@@ -267,7 +267,8 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, gen_gt_re
         # print("raw xmin,ymin:(%d,%d), xmax,ymax:(%d,%d)"%(xmin,ymin,xmax,ymax))
         w_raw = xmax - xmin + 1
         h_raw = ymax - ymin + 1
-        sz = int(max(w_raw, h_raw))#  * 0.62)
+        # sz = int(max(w_raw, h_raw))#  * 0.62)
+        sz = int(max(w_raw, h_raw)*float(src_refine_rectangle_size))#  * 0.62)
         x = int(xmin + (w_raw - sz) * 0.5)
         y = int(ymin + h_raw - sz)
         new_xmin = x
@@ -368,7 +369,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, gen_gt_re
         # print('... done')
 
 
-def gen_patches_voc2voc_format(dataset_list, req_imgsize=300, img_output_size=300, gen_gt_rect=False):
+def gen_patches_voc2voc_format(dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300, gen_gt_rect=False):
     anno_type = 1  # fully labelled
     for data_folder in dataset_list:
         ori_anns_folder = os.path.join(data_folder, "Annotations")
@@ -385,7 +386,12 @@ def gen_patches_voc2voc_format(dataset_list, req_imgsize=300, img_output_size=30
             xml_base_name = os.path.splitext(img_base_name)[0] + ".xml"
             ori_xml = os.path.join(ori_anns_folder, xml_base_name)
             # print("img_base_name>>>> %s, xml_base_name>>>> %s, img_path>>>> %s, ori_xml>>>> %s" %(img_base_name, xml_base_name, img_path, ori_xml))
-            crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, gen_gt_rect)
+            crop_and_gen_pascal(img_path=img_path,
+                                ori_xml=ori_xml,
+                                newvocdir=newvocdir,
+                                img_output_size=img_output_size,
+                                src_refine_rectangle_size=src_refine_rectangle_size,
+                                gen_gt_rect=gen_gt_rect)
 
 
 def gen_positive_list_voc_format():

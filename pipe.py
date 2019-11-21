@@ -114,9 +114,10 @@ if __name__ == '__main__':
     process_definition = yaml.load(yaml_definition, Loader=yaml.Loader)
 
     # execute module step by step
-    step = 0
+    step = -1
     for step_fn in process_definition:
         for step_fn_name in step_fn:
+            step = step + 1
             module_name = shell.colored('step[%d]: %s' % (step, step_fn_name), 'cyan')
             mark_id = '%s[%d]' % (step_fn_name, step)
             if mark_id in mark_finished_step:
@@ -147,7 +148,7 @@ if __name__ == '__main__':
             call(cwd, step_fn_name, step_fn[step_fn_name]['input'],
                  step_fn[step_fn_name].get('output', {}))
             mark_finished_step_file.write('%s\n' % mark_id)
-            step = step + 1
+
 
     mark_finished_step_file.close()
 
