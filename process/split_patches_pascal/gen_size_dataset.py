@@ -5,7 +5,9 @@ import numpy.random as npr
 import random
 import math
 import json
+from utils.file import GET_BARENAME
 from dataset_lib.pascal_voc import PascalVocAnn
+import utils.visionalize as visionalize
 
 
 # from myAffine import *
@@ -162,20 +164,63 @@ def get_related_bboxes(candinates, main_box):
     :param candinates: the original img's all bboxes.
     :param main_box: the expanded box' img (or the cropped img)'s region.
     :return:
+    need_psotprocess_boxes:
+        [0,1,2,3] ==> bboxes
+        [4] ==> whether this (0,1,2,3)'s region will get masked with gray color, cause for small patch GT boxes, which
+                are inpropered to considered as positives with below 30 pixels width or heights.
+                To avoid disterbutions, we had better mask them with gray color, aka, using Negtive backgroud replace those
+                'so-called' Positive samples.
     '''
-    need_addition_box = []
+    need_psotprocess_boxes = []
     for (i, candi_box) in candinates.items():
-        iou, xmin, ymin, xmax, ymax = compute_IoU(candi_box[0:4], main_box) # whether original gtboxes overlap with the img region.
+        iou, xmin, ymin, xmax, ymax = compute_IoU(candi_box[0:4],
+                                                  main_box)  # whether original gtboxes overlap with the img region.
         # print("iou",iou)
         if iou > 0:
             if (xmax - xmin) <= 30 or (ymax - ymin) <= 30:
-                need_addition_box.append([xmin, ymin, xmax, ymax,1])
+                need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 1])
             else:
-                need_addition_box.append([xmin, ymin, xmax, ymax,0])
-    return need_addition_box
+                need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 0])
+    return need_psotprocess_boxes
 
 
-def xytoxcyc(x,y,sz):
+def get_related_bboxes_with_input_list(candinates, main_box):
+    '''
+    filter related bboxes
+    candinates are the original(raw) picture's bboxes.
+    main_box is the expanded bbox's img
+    if there is some bboxes which are belong to the expanded bbox region. we
+    had better label them in expanded bbox's img.
+    and more, for some little head(face), we had better mask them rather than label them or unlabeled them.
+    masking not unlabeling won't get the model confused,cause the negtive region is clean, not get polluted.
+    :param candinates: the original img's all bboxes.
+    :param main_box: the expanded box' img (or the cropped img)'s region.
+    :return:
+    need_psotprocess_boxes:
+        [0,1,2,3] ==> bboxes
+        [4] ==> whether this (0,1,2,3)'s region will get masked with gray color, cause for small patch GT boxes, which
+                are inpropered to considered as positives with below 30 pixels width or heights.
+                To avoid disterbutions, we had better mask them with gray color, aka, using Negtive backgroud replace those
+                'so-called' Positive samples.
+    '''
+    need_psotprocess_boxes = []
+    for i, candi_box in enumerate(candinates):
+        # print("candi_box [%s, %s, %s, %s] with main_box [%s, %s, %s, %s]" % (
+        #     candi_box[0], candi_box[1], candi_box[2], candi_box[3], main_box[0],
+        #     main_box[1], main_box[2], main_box[3]))
+        iou, xmin, ymin, xmax, ymax = compute_IoU(candi_box[0:4],
+                                                  main_box)  # whether original gtboxes overlap with the img region.
+        # print("result iou:%s with [%s, %s, %s, %s]" % (iou, xmin, ymin, xmax, ymax))
+        # print("iou",iou)
+        if iou > 0:
+            if (xmax - xmin) <= 30 or (ymax - ymin) <= 30:
+                need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 1])
+            else:
+                need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 0])
+    return need_psotprocess_boxes
+
+
+def xytoxcyc(x, y, sz):
     '''
     convert x,y to xc, yc
     :param x:
@@ -183,11 +228,12 @@ def xytoxcyc(x,y,sz):
     :param sz:
     :return:
     '''
-    xc = x+(sz/2)
-    yc = y+(sz/2)
-    return xc,yc
+    xc = x + (sz / 2)
+    yc = y + (sz / 2)
+    return xc, yc
 
-def xcyctoxy(xc,yc,expand_sz,width,height):
+
+def xcyctoxy(xc, yc, expand_sz, width, height):
     '''
     xc,yc to x,y
     :param xc:
@@ -197,32 +243,33 @@ def xcyctoxy(xc,yc,expand_sz,width,height):
     :param height:
     :return:
     '''
-    xmin = xc - expand_sz/2
-    ymin = yc - expand_sz/2
-    xmax = xc + expand_sz/2
-    ymax = yc + expand_sz/2
+    xmin = xc - expand_sz / 2
+    ymin = yc - expand_sz / 2
+    xmax = xc + expand_sz / 2
+    ymax = yc + expand_sz / 2
 
-    xmin = np.clip(xmin, 0, width-1)
-    xmax = np.clip(xmax, 0, width-1)
-    ymin = np.clip(ymin, 0, height-1)
-    ymax = np.clip(ymax, 0, height-1)
+    xmin = np.clip(xmin, 0, width - 1)
+    xmax = np.clip(xmax, 0, width - 1)
+    ymin = np.clip(ymin, 0, height - 1)
+    ymax = np.clip(ymax, 0, height - 1)
     if xmin == 0:
-        tmp_w = xmax-xmin
-        xmax = expand_sz-tmp_w+xmax
-    if xmax == width-1:
-        tmp_w=xmax-xmin
-        xmin=xmin-(expand_sz-tmp_w)
+        tmp_w = xmax - xmin
+        xmax = expand_sz - tmp_w + xmax
+    if xmax == width - 1:
+        tmp_w = xmax - xmin
+        xmin = xmin - (expand_sz - tmp_w)
     if ymin == 0:
-        tmp_h = ymax-ymin
-        ymax = expand_sz-tmp_h+ymax
-    if ymax == height-1:
-        tmp_h=ymax-ymin
-        ymin=ymin-(expand_sz-tmp_h)
+        tmp_h = ymax - ymin
+        ymax = expand_sz - tmp_h + ymax
+    if ymax == height - 1:
+        tmp_h = ymax - ymin
+        ymin = ymin - (expand_sz - tmp_h)
 
-    return xmin,ymin,xmax,ymax
+    return xmin, ymin, xmax, ymax
 
 
-def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refine_rectangle_size=0.62, gen_gt_rect=False):
+def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refine_rectangle_size=0.62,
+                        gen_gt_rect=False):
     '''
     crop image to patched image.
     :param img_path: the target image
@@ -239,7 +286,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
     njpegpth = os.path.join(newvocdir, 'JPEGImages')
     if not os.path.exists(njpegpth):
         os.mkdir(njpegpth)
-    nannopth = os.path.join(newvocdir,'Annotations')
+    nannopth = os.path.join(newvocdir, 'Annotations')
     if not os.path.exists(nannopth):
         os.mkdir(nannopth)
     if gen_gt_rect:
@@ -253,7 +300,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
         img = cv2.imread(img_filepath)
     except:
         if not os.path.exists(img_filepath):
-            raise Exception("%s not exists"%(img_filepath))
+            raise Exception("%s not exists" % (img_filepath))
 
     pascal_voc_ann = PascalVocAnn(xml=lb_filepath)
     bboxes = pascal_voc_ann.get_boxes()
@@ -268,7 +315,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
         w_raw = xmax - xmin + 1
         h_raw = ymax - ymin + 1
         # sz = int(max(w_raw, h_raw))#  * 0.62)
-        sz = int(max(w_raw, h_raw)*float(src_refine_rectangle_size))#  * 0.62)
+        sz = int(max(w_raw, h_raw) * float(src_refine_rectangle_size))  # * 0.62)
         x = int(xmin + (w_raw - sz) * 0.5)
         y = int(ymin + h_raw - sz)
         new_xmin = x
@@ -304,7 +351,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
         # rectangle_boxes[rect_idx+1] = [img_xmn, img_ymn, img_xmx, img_ymx]
         # expand box to `img_output_size`
         # print("xc,yc:(%s,%s) sz:%s"%(xc,yc,sz))
-        img_xmn, img_ymn, img_xmx, img_ymx = xcyctoxy(xc,yc,img_output_size,img.shape[1],img.shape[0])
+        img_xmn, img_ymn, img_xmx, img_ymx = xcyctoxy(xc, yc, img_output_size, img.shape[1], img.shape[0])
         # print("after (%s,%s) and (%s,%s)"%(img_xmn,img_ymn,img_xmx,img_ymx))
 
         # filte out the crossed(or overlaped original bboxes with those expanded img region)
@@ -314,7 +361,7 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
         tmp_img = img.copy()
         for nbox in need_box:
             if nbox[4] == 1:
-                nbxmin,nbymin,nbxmax,nbymax = nbox[0:4]
+                nbxmin, nbymin, nbxmax, nbymax = nbox[0:4]
                 tmp_img[nbymin:nbymax, nbxmin:nbxmax] = 125
         ioregion_croped = tmp_img[img_ymn:img_ymx, img_xmn:img_xmx]
         w_croped = ioregion_croped.shape[1]
@@ -369,29 +416,494 @@ def crop_and_gen_pascal(img_path, ori_xml, newvocdir, img_output_size, src_refin
         # print('... done')
 
 
-def gen_patches_voc2voc_format(dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300, gen_gt_rect=False):
+def gen_square_from_rectangle(src_bboxes, src_refine_rectangle_size, src_boundrary):
+    '''
+    gen square from rectangels.
+    Tips:
+        bboxes belongs to img.
+    :param src_bboxes: rectangles' bboxes positions.
+    :param src_refine_rectangle_size:
+    :param src_boundrary: imgs' boundary list. [h, w]
+    :return:
+    '''
+    rxmin, rymin, rxmax, rymax = src_bboxes
+    rw = rxmax - rxmin + 1
+    rh = rymax - rymin + 1
+
+    square_size = int(max(rw, rh) * float(src_refine_rectangle_size))
+    sxmin = int(rxmin + (rw - square_size) * 0.5)
+    symin = int(rymin + (rh - square_size) * 0.5)
+    sxmax = sxmin + square_size - 1
+    symax = symin + square_size - 1
+
+    img_h, img_w = src_boundrary
+    sxmin = sxmin if sxmin > 0 else 0
+    symin = symin if symin > 0 else 0
+    sxmax = sxmax if sxmax < img_w else img_w - 1
+    symax = symax if symax < img_h else img_h - 1
+
+    return [sxmin, symin, sxmax, symax]
+
+
+def Test_gen_square_from_rectangle():
+    '''
+    Test for gen_square_from_rectangle
+    :return:
+    '''
+    xml_path = "/ssd/hnren/Data/dataset_pipe/newcrop/Annotations/ch00005_20190214_ch00005_20190214115052.mp4.cut.mp4_003000.xml"
+    src_img_path = '/ssd/hnren/Data/dataset_pipe/newcrop/JPEGImages'
+    dst_test_img_dir = '.'
+
+    imgname = GET_BARENAME(xml_path) + '.jpg'
+    imgpath = os.path.join(src_img_path, imgname)
+    if not os.path.exists(imgpath):
+        raise Exception("%s not exists!" % (imgpath))
+    else:
+        img = cv2.imread(imgpath)
+        dst_img_path = os.path.join(dst_test_img_dir, imgname)
+    pascal_voc_ann = PascalVocAnn(xml=xml_path)
+    bboxes = pascal_voc_ann.get_boxes()
+    h, w, c = pascal_voc_ann.get_size()
+    img_shape = [h, w]
+    val_rs = [0, 85, 170, 255]
+    val_gs = [85, 170, 255, 0]
+    val_bs = [170, 255, 0, 85]
+
+    for bbox in bboxes:
+        bbox = bbox[1:5]
+        color = (val_rs[0], val_gs[0], val_bs[0])
+        img = cv2.rectangle(img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+        for idx, rect_ration in enumerate([0.65, 0.7, 0.75]):
+            color = (val_rs[idx + 1], val_gs[idx + 1], val_bs[idx + 1])
+            square_shape = gen_square_from_rectangle(src_bboxes=bbox,
+                                                     src_refine_rectangle_size=rect_ration,
+                                                     src_boundrary=img_shape)
+            img = cv2.rectangle(img, (int(square_shape[0]), int(square_shape[1])),
+                                (int(square_shape[2]), int(square_shape[3])), color, 2)
+
+    cv2.imwrite(dst_img_path, img)
+
+    print("bbox: ", bbox)
+    print("img_shape: ", img_shape)
+    print("square_shape: ", square_shape)
+
+
+def gen_expand_shape(src_img_out_shape_list, src_bboxes_scale_shape, src_box_size_shape):
+    '''
+    gen expact expand shape size.
+    :param src_center_list:
+    :param src_img_out_shape_list:
+    :return:
+    '''
+    out_img_width, out_img_height = src_img_out_shape_list
+    out_box_width, out_box_height = src_bboxes_scale_shape
+    cur_box_width, cur_box_height = src_box_size_shape
+
+    expand_img_width = float(out_img_width) / float(out_box_width) * float(cur_box_width)
+    expand_img_height = float(out_img_height) / float(out_box_height) * float(cur_box_height)
+
+    return expand_img_width, expand_img_height
+
+
+def gen_xcyctoxy(src_center_list, src_expand_size, src_img_shape):
+    '''
+    gen xy from xcenter, ycenter and corresponding width, height.
+    :param src_center_list: [xcenter, ycenter]
+    :param src_expand_size: [expand_width, expand_height]
+    :param src_img_shape: [img_width, img_height]
+    :return:
+    '''
+    xcenter, ycenter = src_center_list
+    expand_widht, expand_height = src_expand_size
+    img_width, img_height = src_img_shape
+    xmin = xcenter - expand_widht / 2 if xcenter - expand_widht / 2 > 0 else 0
+    ymin = ycenter - expand_height / 2 if ycenter - expand_height / 2 > 0 else 0
+    xmax = xcenter + expand_widht / 2 if xcenter + expand_widht / 2 < img_width else img_width - 1
+    ymax = ycenter + expand_height / 2 if ycenter + expand_height / 2 < img_height else img_height - 1
+
+    return [xmin, ymin, xmax, ymax]
+
+
+def post_process_mask_bboxes(src_img, src_need_post_bboxes):
+    '''
+    mask not-inter and belongs to need post(need mask) bboxe's corresponding img region.
+    :param src_img:
+    :param src_need_post_bboxes:
+    :return:
+    '''
+
+    need_mask_bboxes_list = []
+    normal_bboxes_list = []
+    for bbox in src_need_post_bboxes:
+        if bbox[4] == 1:
+            need_mask_bboxes_list.append(bbox)
+        elif bbox[4] == 0:
+            normal_bboxes_list.append(bbox)
+        else:
+            raise Exception("invalid [4] of src_need_post_bboxes")
+
+    for maskbox in need_mask_bboxes_list:
+        for normalbox in normal_bboxes_list:
+            iou, ixmin, iymin, ixmax, iymax = compute_IoU(normalbox, maskbox)
+            if iou == 0:
+                continue
+            tmp_region = src_img[iymin:iymax,ixmin:ixmax].copy()
+            src_img[maskbox[1]:maskbox[3], maskbox[0]:maskbox[2]] = 125
+            src_img[iymin:iymax, ixmin:ixmax] = tmp_region
+
+    return src_img
+
+def gen_slice_patches_in_pascal_format(
+        src_img_path,
+        src_xml_path,
+        dst_img_dir,
+        dst_xml_dir,
+        src_img_output_size,
+        src_refine_rectangle_size,
+        src_bboxes_type,
+        src_bboxes_scale_shape
+):
+    '''
+    gen slice patches from origin xml & imgs within pascal format outputing.
+    :param src_img_path:
+    :param src_xml_path:
+    :param dst_out_dir:
+    :param src_img_output_size:
+    :param src_refine_rectangle_size:
+    :param src_gen_gt_rect:
+    :param src_bboxes_type:
+            whether the bboxes are square or not.(default bboxes are rectangle).
+    :param src_bboxes_scale_shape:
+            wheher the bboxes need the resize.
+                if null which means no need for resizing.
+                if not null, which means we need cv2.resize to get the satisfied shape.
+    :return:
+    '''
+    src_img_list = list_all_files(src_img_path, exts=["jpg"])
+
+    for processid, imgpath in enumerate(src_img_list):
+        if len(src_img_list) > 100 and processid % (len(src_img_list) / 100) == 0:
+            print("now at %s/%s .. " % (processid, len(src_img_list)))
+
+        try:
+            img = cv2.imread(imgpath)
+        except:
+            raise Exception("%s not exists" % (imgpath))
+        xmlname = GET_BARENAME(imgpath) + '.xml'
+        xml_path = os.path.join(src_xml_path, xmlname)
+        # print("imgpath: %s, xmlname: %s, xml_path:%s"%(imgpath, xmlname, xml_path))
+        pascal_voc_ann = PascalVocAnn(xml=xml_path)
+        bboxes = pascal_voc_ann.get_boxes()
+        h, w, c = pascal_voc_ann.get_size()
+        boxes_list = []
+        for (idx, box) in enumerate(bboxes):
+            xmin, ymin, xmax, ymax = box[1:5]
+            if src_bboxes_type == 'square':
+                tempbox = gen_square_from_rectangle(
+                    src_bboxes=box[1:5],
+                    src_refine_rectangle_size=src_refine_rectangle_size,
+                    src_boundrary=[h, w]
+                )
+            elif src_bboxes_type == 'rectangle':
+                tempbox = [xmin, ymin, xmax, ymax]
+            else:
+                raise Exception(
+                    "%s is Not supported bbox's type, only support 'square' and 'rectangle'.." % (src_bboxes_type))
+            boxes_list.append(tempbox)
+        # print("%s with %s bboxes: %s" % (xml_path, len(boxes_list), boxes_list))
+
+        for idx, box in enumerate(boxes_list):
+            xmin, ymin, xmax, ymax = box
+            wsize = xmax - xmin + 1
+            hsize = ymax - ymin + 1
+            xcenter = xmin + wsize / 2
+            ycenter = ymin + hsize / 2
+            # print("running.. gen expand width and height..")
+            if src_bboxes_scale_shape == None:
+                expand_width = src_img_output_size[0]
+                expand_height = src_img_output_size[1]
+            else:
+                expand_width, expand_height = gen_expand_shape(src_img_out_shape_list=src_img_output_size,
+                                                               src_bboxes_scale_shape=src_bboxes_scale_shape,
+                                                               src_box_size_shape=[wsize, hsize])
+            # print("running.. gen new tl br positions..")
+            cxmin, cymin, cxmax, cymax = gen_xcyctoxy(src_center_list=[xcenter, ycenter],
+                                                      src_expand_size=[expand_width, expand_height],
+                                                      src_img_shape=[w, h])
+
+            # if idx == 0:
+            #     print("box%d with crop region [%s,%s,%s,%s], with expand [%s(w), %s(h)], center [%s, %s]" % (
+            #         idx, cxmin, cymin, cxmax, cymax, expand_width, expand_height, xcenter, ycenter))
+
+            # debug
+            # visionalize.visionalize_bboxes_list_on_img(
+            #     src_img_file=imgpath,
+            #     dst_img_file="/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/" + GET_BARENAME(
+            #         imgpath) + "_box%s.jpg" % (idx),
+            #     src_bboxes_list=[[cxmin, cymin, cxmax, cymax]])
+
+            # print("running.. crop, mask, or maybe resize..")
+            dst_imgname = GET_BARENAME(imgpath) + "_crop%s" % (idx) + ".jpg"
+            dst_img_path = os.path.join(dst_img_dir, dst_imgname)
+
+            need_postprocess_boxes = get_related_bboxes_with_input_list(boxes_list, [cxmin, cymin, cxmax, cymax])
+            tmp_img = img.copy()
+            tmp_img = post_process_mask_bboxes(
+                src_img=tmp_img,
+                src_need_post_bboxes=need_postprocess_boxes
+            )
+            # for nbox in need_postprocess_boxes:
+            #     if nbox[4] == 1:
+            #         nbxmin, nbymin, nbxmax, nbymax = nbox[0:4]
+            #         tmp_img[nbymin:nbymax, nbxmin:nbxmax] = 125
+            img_crop = tmp_img[cymin:cymax, cxmin:cxmax]  # Tips: first start with y dim, then with x dim..
+
+            if src_bboxes_scale_shape:
+                img_crop = cv2.resize(img_crop, (src_img_output_size[0], src_img_output_size[1]),
+                                      interpolation=cv2.INTER_CUBIC)
+            img_crop_with = img_crop.shape[1]
+            img_crop_height = img_crop.shape[0]
+            assert img_crop_with <= src_img_output_size[0], "img_crop_with:%s with src_img_output_size[0]:%s" % (
+                img_crop_with, src_img_output_size[0])
+            assert img_crop_height <= src_img_output_size[1], "img_crop_height:%s with src_img_output_size[1]:%s" % (
+                img_crop_height, src_img_output_size[1])
+            assert img_crop_with == (cxmax - cxmin), "img_crop_with:%s with cxmin:%s, cxmax:%s" % (
+                img_crop_with, cxmin, cxmax)
+            assert img_crop_height == (cymax - cymin), "img_crop_height:%s with cymin:%s, cymax:%s" % (
+                img_crop_height, cymin, cymax)
+            cv2.imwrite(dst_img_path, img_crop)
+
+            # print("running.. statisic related bboxes in this cropped img region..")
+            rebased_need_box = []
+            for boxid, boxlist in enumerate(need_postprocess_boxes):
+                if boxlist[4] == 0:
+                    [box_xmin, box_ymin, box_xmax, box_ymax] = boxlist[0:4]
+                    reb_xmin = box_xmin - cxmin
+                    reb_ymin = box_ymin - cymin
+                    reb_xmax = box_xmax - cxmin
+                    reb_ymax = box_ymax - cymin
+                    reb_xmin = int(float(src_img_output_size[0]) / img_crop_with * reb_xmin)
+                    reb_ymin = int(float(src_img_output_size[1]) / img_crop_height * reb_ymin)
+                    reb_xmax = int(float(src_img_output_size[0]) / img_crop_with * reb_xmax)
+                    reb_ymax = int(float(src_img_output_size[1]) / img_crop_height * reb_ymax)
+                    rebased_need_box.append([reb_xmin, reb_ymin, reb_xmax, reb_ymax])
+                    # if boxid == 0:
+                    #     print(
+                    #         "box%s with box [%s, %s, %s, %s] and crop img region [%s, %s, %s, %s] ,and rebased box [%s, %s, %s, %s]" %
+                    #         (boxid, box_xmin, box_ymin, box_xmax, box_ymax, cxmin, cymin, cxmax, cymax, reb_xmin,
+                    #          reb_ymin,
+                    #          reb_xmax, reb_ymax)
+                    #     )
+
+            # print("running.. gen new xmls..")
+            dst_xmlname = GET_BARENAME(imgpath) + "_crop%s" % (idx) + ".xml"
+            dst_xml_path = os.path.join(dst_xml_dir, dst_xmlname)
+            # print("dst_img_path: ", dst_img_path)
+            newpascal_ann = PascalVocAnn(image_name=dst_img_path)
+            newpascal_ann.set_filename(file_name=dst_img_path)
+            newpascal_ann.set_size(size=[src_img_output_size[1], src_img_output_size[0], img.shape[2]])
+            for reb_box in rebased_need_box:
+                [reb_xmin, reb_ymin, reb_xmax, reb_ymax] = reb_box
+                newpascal_ann.add_object(object_class="head", xmin=reb_xmin, ymin=reb_ymin, xmax=reb_xmax,
+                                         ymax=reb_ymax)
+            newpascal_ann.check_boxes()
+            newpascal_ann.write_xml(dst_xml_path)
+
+    print("done..")
+
+
+def gen_imgid_bboxes_map(src_xml_file):
+    '''
+    get bboxes of specific imgid.
+    :param src_xml_file:
+    :return:
+        imgid, bboxe in str format line.
+    '''
+    if not os.path.exists(src_xml_file):
+        raise Exception("%s not exists!" % (src_xml_file))
+
+    imgid = GET_BARENAME(src_xml_file)
+    pascal_voc_ann = PascalVocAnn(xml=src_xml_file)
+    bboxes = pascal_voc_ann.get_boxes()
+    h, w, c = pascal_voc_ann.get_size()
+    boxes_list = []
+    str_box_list = []
+    for (idx, box) in enumerate(bboxes):
+        xmin, ymin, xmax, ymax = box[1:5]
+        str_box = "{}-{}-{}-{}".format(xmin, ymin, xmax, ymax)
+        str_box_list.append(str_box)
+
+    return imgid, "_".join(str_box_list)
+
+
+def restore_from_str_box_line(src_str_box_line):
+    '''
+    restore from str box to bboxes.
+    :param src_str_box_line:
+    :return:
+        list with element which is also list.
+    '''
+    words = src_str_box_line.strip().split('_')
+    bboxes = []
+    for wd in words:
+        xmin, ymin, xmax, ymax = wd.split('-')
+        bboxes.append([xmin, ymin, xmax, ymax])
+    return bboxes
+
+
+def vis_bboxes_on_img(src_img_file, dst_img_file, src_bboxes_list):
+    '''
+    visionalize bboxes at img, then save it.
+    :param src_img_file:
+    :param dst_img_file:
+    :param src_bboxes_list:
+    :return:
+    '''
+    try:
+        img = cv2.imread(src_img_file)
+    except:
+        raise Exception("imread fail with %s" % (src_img_file))
+    val_rs = [0, 85, 170, 255]
+    val_gs = [85, 170, 255, 0]
+    val_bs = [170, 255, 0, 85]
+
+    for idx, bbox in enumerate(src_bboxes_list):
+        color_r = val_rs[idx % 4]
+        color_g = val_gs[idx % 4]
+        color_b = val_bs[idx % 4]
+        color = (color_r, color_g, color_b)
+        img = cv2.rectangle(img, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color, 2)
+    cv2.imwrite(dst_img_file, img)
+
+
+def gen_vis_with_jpg_xml(src_jpg_dir, src_xml_dir, dst_vis_dir):
+    '''
+    combine  `src jpg dir`  and  `src xml dir`  into  `dst vis dir`
+    :param src_jpg_dir:
+    :param src_xml_dir:
+    :param dst_vis_dir:
+    :return:
+    '''
+    imgspath = list_all_files(src_jpg_dir, exts=['jpg'])
+    for img_file in imgspath:
+        xmlname = GET_BARENAME(img_file) + ".xml"
+        xml_file = os.path.join(src_xml_dir, xmlname)
+        imgid, str_bbox_line = gen_imgid_bboxes_map(src_xml_file=xml_file)
+        bboxes = restore_from_str_box_line(src_str_box_line=str_bbox_line)
+        visname = GET_BARENAME(img_file) + "_vis.jpg"
+        vis_file = os.path.join(dst_vis_dir, visname)
+        vis_bboxes_on_img(
+            src_img_file=img_file,
+            dst_img_file=vis_file,
+            src_bboxes_list=bboxes
+        )
+
+
+def Test_gen_slice_patches_in_pascal_format():
+    '''
+    test gen slice patches in pascal format..
+    test factory:
+    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/
+    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/JPEGImages/ch01011_20190322_ch01011_20190322084000.mp4.cut.mp4_003000.jpg
+    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/Annotations/ch01011_20190322_ch01011_20190322084000.mp4.cut.mp4_003000.xml
+    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/
+    :return:
+    '''
+    imgs_dir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/JPEGImages/"
+    xmls_dir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/Annotations/"
+    newvocdir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/"
+    dst_img_dir = os.path.join(newvocdir, "JPEGImages")
+    dst_xml_dir = os.path.join(newvocdir, "Annotations")
+    dst_vis_dir = os.path.join(newvocdir, "JPEG_with_anno")
+
+    if not os.path.exists(dst_img_dir):
+        os.makedirs(dst_img_dir)
+    if not os.path.exists(dst_xml_dir):
+        os.makedirs(dst_xml_dir)
+    if not os.path.exists(dst_vis_dir):
+        os.makedirs(dst_vis_dir)
+
+    img_output_size = 300
+
+    gen_slice_patches_in_pascal_format(
+        src_img_path=imgs_dir,
+        src_xml_path=xmls_dir,
+        dst_img_dir=dst_img_dir,
+        dst_xml_dir=dst_xml_dir,
+        src_img_output_size=[img_output_size, img_output_size],
+        src_refine_rectangle_size=0.7,
+        src_bboxes_type='rectangle',
+        src_bboxes_scale_shape=None
+    )
+    gen_vis_with_jpg_xml(
+        src_jpg_dir=dst_img_dir,
+        src_xml_dir=dst_xml_dir,
+        dst_vis_dir=dst_vis_dir
+    )
+
+
+def gen_patches_voc2voc_format(dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300,
+                               gen_gt_rect=False):
     anno_type = 1  # fully labelled
     for data_folder in dataset_list:
         ori_anns_folder = os.path.join(data_folder, "Annotations")
         ori_imgs_folder = os.path.join(data_folder, "JPEGImages")
         imgs = list_all_files(ori_imgs_folder, exts=["jpg"])
+        xmls = list_all_files(ori_anns_folder, exts=["xml"])
         newvocdir = data_folder + "_patches_int"
         print("....crop_and_gen_pascal")
-        all_imgs_num =  len(imgs)
+        all_imgs_num = len(imgs)
         for i, img_path in enumerate(imgs):
-            if i % (all_imgs_num/100)==0:
-                print("process %s/100"%(i/(all_imgs_num/100)))
+            if i % (all_imgs_num / 100) == 0:
+                print("process %s/%s" % (i, all_imgs_num))
 
             img_base_name = os.path.basename(img_path)
             xml_base_name = os.path.splitext(img_base_name)[0] + ".xml"
             ori_xml = os.path.join(ori_anns_folder, xml_base_name)
-            # print("img_base_name>>>> %s, xml_base_name>>>> %s, img_path>>>> %s, ori_xml>>>> %s" %(img_base_name, xml_base_name, img_path, ori_xml))
             crop_and_gen_pascal(img_path=img_path,
                                 ori_xml=ori_xml,
                                 newvocdir=newvocdir,
                                 img_output_size=img_output_size,
                                 src_refine_rectangle_size=src_refine_rectangle_size,
                                 gen_gt_rect=gen_gt_rect)
+
+
+def gen_patches_dataset_in_pascal(
+        dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300,
+        gen_gt_rect=False):
+    anno_type = 1  # fully labelled
+    for data_folder in dataset_list:
+        ori_anns_folder = os.path.join(data_folder, "Annotations")
+        ori_imgs_folder = os.path.join(data_folder, "JPEGImages")
+        imgs = list_all_files(ori_imgs_folder, exts=["jpg"])
+        xmls = list_all_files(ori_anns_folder, exts=["xml"])
+        newvocdir = data_folder + "_patches_int"
+        print("....crop_and_gen_pascal")
+        all_imgs_num = len(imgs)
+        # for i, img_path in enumerate(imgs):
+        #     if i % (all_imgs_num / 100) == 0:
+        #         print("process %s/%s" % (i, all_imgs_num))
+        #
+        #     img_base_name = os.path.basename(img_path)
+        #     xml_base_name = os.path.splitext(img_base_name)[0] + ".xml"
+        #     ori_xml = os.path.join(ori_anns_folder, xml_base_name)
+        #     crop_and_gen_pascal(img_path=img_path,
+        #                         ori_xml=ori_xml,
+        #                         newvocdir=newvocdir,
+        #                         img_output_size=img_output_size,
+        #                         src_refine_rectangle_size=src_refine_rectangle_size,
+        #                         gen_gt_rect=gen_gt_rect)
+
+        gen_slice_patches_in_pascal_format(
+            src_img_path=imgs,
+            src_xml_path=xmls,
+            dst_img_dir=os.path.join(newvocdir, "JPEGImages"),
+            dst_xml_dir=os.path.join(newvocdir, "Annotations"),
+            src_img_output_size=[img_output_size, img_output_size],
+            src_refine_rectangle_size=0.7,
+            src_bboxes_type='rectangle',
+            src_bboxes_scale_shape=None
+        )
 
 
 def gen_positive_list_voc_format():
@@ -564,19 +1076,22 @@ def get_max_bbox_size(dataset_list):
 
 
 if __name__ == "__main__":
+    # # dslist = ['HeadVocFormat/FID_DID_HEAD_CLEAN_0',
+    # #           'HeadVocFormat/FID_DID_HEAD_CLEAN_1',
+    # #           'HeadVocFormat/FID_DID_HEAD_CLEAN_2',
+    # #           'HeadVocFormat/HeadBoxDataFidChecked2']
+    # # dslist= ['HeadVocFormat/HeadBoxDataFidChecked2']
+    # dslist = ['FID_DID_HEAD_CLEAN_0']
+    # for dsitem in dslist:
+    #     if not os.path.exists(dsitem):
+    #         raise Exception("%s not exists" % (dsitem))
+    #
+    # max_sz = get_max_bbox_size(dataset_list=dslist)
+    # print("max sz:", max_sz)
+    # gen_patches_voc2voc_format(dataset_list=dslist, req_imgsize=int(max_sz * 1.5), img_output_size=300,
+    #                            gen_gt_rect=False)
+    #
+    # pass
 
-    # dslist = ['HeadVocFormat/FID_DID_HEAD_CLEAN_0',
-    #           'HeadVocFormat/FID_DID_HEAD_CLEAN_1',
-    #           'HeadVocFormat/FID_DID_HEAD_CLEAN_2',
-    #           'HeadVocFormat/HeadBoxDataFidChecked2']
-    # dslist= ['HeadVocFormat/HeadBoxDataFidChecked2']
-    dslist= ['FID_DID_HEAD_CLEAN_0']
-    for dsitem in dslist:
-        if not os.path.exists(dsitem):
-            raise Exception("%s not exists"%(dsitem))
-
-    max_sz = get_max_bbox_size(dataset_list=dslist)
-    print("max sz:", max_sz)
-    gen_patches_voc2voc_format(dataset_list=dslist, req_imgsize=int(max_sz * 1.5), img_output_size=300, gen_gt_rect=False)
-
-    pass
+    # Test_gen_square_from_rectangle()
+    Test_gen_slice_patches_in_pascal_format()

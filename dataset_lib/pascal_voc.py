@@ -19,7 +19,10 @@ class PascalVocAnn(object):
             self.node_root = Element('annotation')
             self.node_filename = SubElement(self.node_root, 'filename')
             self.node_filename.text = image_name
-            h,w,c = cv2.imread(image_name).shape
+            try:
+                h,w,c = cv2.imread(image_name).shape
+            except:
+                raise Exception("%s not exists or its size is 0!"%(image_name))
             self.node_size = SubElement(self.node_root, "size")
             self.node_width = SubElement(self.node_size, "width")
             self.node_width.text = str(w)

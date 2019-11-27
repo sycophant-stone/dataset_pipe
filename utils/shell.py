@@ -62,10 +62,11 @@ def run_system_command_with_res(cmd_line, cwd='', ignore_err=False):
 
 
 
-def run_system_command(cmd_line, cwd='', ignore_err=False):
+def run_system_command(cmd_line, cwd='', ignore_err=False, show=False):
     hdfs_put_retry = 2
     while True:
-        print('%s %s'%(cwd, cmd_line))
+        if show:
+            print('%s %s'%(cwd, cmd_line))
         cur_cwd = os.getcwd()
         if cwd != '':
             os.chdir(cwd)
