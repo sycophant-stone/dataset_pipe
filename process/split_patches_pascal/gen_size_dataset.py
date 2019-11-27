@@ -527,9 +527,15 @@ def gen_xcyctoxy(src_center_list, src_expand_size, src_img_shape):
 def post_process_mask_bboxes(src_img, src_need_post_bboxes):
     '''
     mask not-inter and belongs to need post(need mask) bboxe's corresponding img region.
+      i) get the inter region.
+     ii) save img's inter region to temp.
+    iii) fill this need mask bbox region with gray color(125).
+     iv) restore the inter region with step ii) 's temp.
+     Tips:  inter region  `belongs to` mask bbox  when inter region exists.
+
     :param src_img:
     :param src_need_post_bboxes:
-    :return:
+    :return: post processed img.
     '''
 
     need_mask_bboxes_list = []
@@ -547,11 +553,12 @@ def post_process_mask_bboxes(src_img, src_need_post_bboxes):
             iou, ixmin, iymin, ixmax, iymax = compute_IoU(normalbox, maskbox)
             if iou == 0:
                 continue
-            tmp_region = src_img[iymin:iymax,ixmin:ixmax].copy()
+            tmp_region = src_img[iymin:iymax, ixmin:ixmax].copy()
             src_img[maskbox[1]:maskbox[3], maskbox[0]:maskbox[2]] = 125
             src_img[iymin:iymax, ixmin:ixmax] = tmp_region
 
     return src_img
+
 
 def gen_slice_patches_in_pascal_format(
         src_img_path,
@@ -561,7 +568,9 @@ def gen_slice_patches_in_pascal_format(
         src_img_output_size,
         src_refine_rectangle_size,
         src_bboxes_type,
-        src_bboxes_scale_shape
+        src_bboxes_scale_shape,
+        dst_raw_imgid_bboxes_map_file,
+        dst_cropped_imgid_bboxes_map_file
 ):
     '''
     gen slice patches from origin xml & imgs within pascal format outputing.
@@ -580,7 +589,8 @@ def gen_slice_patches_in_pascal_format(
     :return:
     '''
     src_img_list = list_all_files(src_img_path, exts=["jpg"])
-
+    raw_imgid_bboxes_map = {}  # imgid,b0xmin b0ymin b0xmax b0ymax,b1 b1 b1 b1,...
+    cropped_imgid_bboxes_map = {}
     for processid, imgpath in enumerate(src_img_list):
         if len(src_img_list) > 100 and processid % (len(src_img_list) / 100) == 0:
             print("now at %s/%s .. " % (processid, len(src_img_list)))
@@ -596,8 +606,12 @@ def gen_slice_patches_in_pascal_format(
         bboxes = pascal_voc_ann.get_boxes()
         h, w, c = pascal_voc_ann.get_size()
         boxes_list = []
+        imgid = GET_BARENAME(imgpath)
         for (idx, box) in enumerate(bboxes):
             xmin, ymin, xmax, ymax = box[1:5]
+            if imgid not in raw_imgid_bboxes_map:
+                raw_imgid_bboxes_map[imgid] = set([])
+            raw_imgid_bboxes_map[imgid].add(" ".join([str(b) for b in [xmin, ymin, xmax, ymax]]))
             if src_bboxes_type == 'square':
                 tempbox = gen_square_from_rectangle(
                     src_bboxes=box[1:5],
@@ -673,6 +687,10 @@ def gen_slice_patches_in_pascal_format(
                 img_crop_height, cymin, cymax)
             cv2.imwrite(dst_img_path, img_crop)
 
+            if imgid not in cropped_imgid_bboxes_map:
+                cropped_imgid_bboxes_map[imgid] = set([])
+            cropped_imgid_bboxes_map[imgid].add(" ".join([str(b) for b in [cxmin, cymin, cxmax, cymax]]))
+
             # print("running.. statisic related bboxes in this cropped img region..")
             rebased_need_box = []
             for boxid, boxlist in enumerate(need_postprocess_boxes):
@@ -708,6 +726,20 @@ def gen_slice_patches_in_pascal_format(
                                          ymax=reb_ymax)
             newpascal_ann.check_boxes()
             newpascal_ann.write_xml(dst_xml_path)
+
+    out_raw_p = open(dst_raw_imgid_bboxes_map_file, 'w')
+
+    for imgid, bboxes in raw_imgid_bboxes_map.items():
+        str_bboxes = ','.join(bboxes)
+        out_raw_p.write("%s,%s\n" % (imgid, str_bboxes))
+    out_raw_p.close()
+
+    out_crop_p = open(dst_cropped_imgid_bboxes_map_file, 'w')
+
+    for imgid, bboxes in cropped_imgid_bboxes_map.items():
+        str_bboxes = ','.join(bboxes)
+        out_crop_p.write("%s,%s\n" % (imgid, str_bboxes))
+    out_crop_p.close()
 
     print("done..")
 
@@ -816,6 +848,9 @@ def Test_gen_slice_patches_in_pascal_format():
     dst_xml_dir = os.path.join(newvocdir, "Annotations")
     dst_vis_dir = os.path.join(newvocdir, "JPEG_with_anno")
 
+    dst_raw_map_file = newvocdir + os.sep + "raw_imgid_bboxes_map.csv"
+    dst_crop_map_file = newvocdir + os.sep + "crop_imgid_bboxes_map.csv"
+
     if not os.path.exists(dst_img_dir):
         os.makedirs(dst_img_dir)
     if not os.path.exists(dst_xml_dir):
@@ -833,7 +868,9 @@ def Test_gen_slice_patches_in_pascal_format():
         src_img_output_size=[img_output_size, img_output_size],
         src_refine_rectangle_size=0.7,
         src_bboxes_type='rectangle',
-        src_bboxes_scale_shape=None
+        src_bboxes_scale_shape=None,
+        dst_raw_imgid_bboxes_map_file=dst_raw_map_file,
+        dst_cropped_imgid_bboxes_map_file=dst_crop_map_file
     )
     gen_vis_with_jpg_xml(
         src_jpg_dir=dst_img_dir,

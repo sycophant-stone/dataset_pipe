@@ -91,6 +91,8 @@
     output:
       dst_img_dir: {{daily_patches_int_work_dir}}/JPEGImages
       dst_xml_dir: {{daily_patches_int_work_dir}}/Annotations
+      dst_raw_imgid_bboxes_map_file: {{daily_work_dir}}/raw_imgid_boxes_map.csv
+      dst_cropped_imgid_bboxes_map_file: {{daily_work_dir}}/cropped_imgid_bboxes_map_file.csv
 
 - process.split_patches_pascal.filter_subset.run:
     desc: 'filter set with ratio,randomly'
