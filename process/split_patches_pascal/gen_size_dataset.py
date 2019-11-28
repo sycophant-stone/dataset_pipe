@@ -7,6 +7,8 @@ import math
 import json
 from utils.file import GET_BARENAME
 from dataset_lib.pascal_voc import PascalVocAnn
+from utils.bbox_file import get_imgid_bboxes_map_from_file
+from utils.visionalize import visionalize_bboxes_list_on_img_dat
 import utils.visionalize as visionalize
 
 
@@ -570,7 +572,8 @@ def gen_slice_patches_in_pascal_format(
         src_bboxes_type,
         src_bboxes_scale_shape,
         dst_raw_imgid_bboxes_map_file,
-        dst_cropped_imgid_bboxes_map_file
+        dst_cropped_imgid_bboxes_map_file,
+        dst_reclip_imgid_bboxes_map_file
 ):
     '''
     gen slice patches from origin xml & imgs within pascal format outputing.
@@ -586,11 +589,18 @@ def gen_slice_patches_in_pascal_format(
             wheher the bboxes need the resize.
                 if null which means no need for resizing.
                 if not null, which means we need cv2.resize to get the satisfied shape.
+    :param dst_raw_imgid_bboxes_map_file:
+            the bboxes from the origin jpg(aka the 1080p or more resolution jpg).
+    :param dst_cropped_imgid_bboxes_map_file:
+            to get the small set of pictures, or to satisfy the required img output size(300,300), we design a region for cropping.
+    :param dst_reclip_imgid_bboxes_map_file:
+            in the above cropped imgs, which is descriped at `dst_cropped_imgid_bboxes_map_file`, we reclip those original bboxes belong to objects.
     :return:
     '''
     src_img_list = list_all_files(src_img_path, exts=["jpg"])
     raw_imgid_bboxes_map = {}  # imgid,b0xmin b0ymin b0xmax b0ymax,b1 b1 b1 b1,...
-    cropped_imgid_bboxes_map = {}
+    cropped_imgid_bboxes_map = {}  # not the bbox, but the cropped rectangle region for statifying output img size.
+    reclip_imgid_bboxes_map = {}  # reclip bboxes in cropped img rectangle.
     for processid, imgpath in enumerate(src_img_list):
         if len(src_img_list) > 100 and processid % (len(src_img_list) / 100) == 0:
             print("now at %s/%s .. " % (processid, len(src_img_list)))
@@ -705,6 +715,12 @@ def gen_slice_patches_in_pascal_format(
                     reb_xmax = int(float(src_img_output_size[0]) / img_crop_with * reb_xmax)
                     reb_ymax = int(float(src_img_output_size[1]) / img_crop_height * reb_ymax)
                     rebased_need_box.append([reb_xmin, reb_ymin, reb_xmax, reb_ymax])
+
+                    if imgid not in reclip_imgid_bboxes_map:
+                        reclip_imgid_bboxes_map[imgid] = set([])
+                    reclip_imgid_bboxes_map[imgid].add(
+                        " ".join([str(b) for b in [box_xmin, box_ymin, box_xmax, box_ymax]]))
+
                     # if boxid == 0:
                     #     print(
                     #         "box%s with box [%s, %s, %s, %s] and crop img region [%s, %s, %s, %s] ,and rebased box [%s, %s, %s, %s]" %
@@ -740,6 +756,13 @@ def gen_slice_patches_in_pascal_format(
         str_bboxes = ','.join(bboxes)
         out_crop_p.write("%s,%s\n" % (imgid, str_bboxes))
     out_crop_p.close()
+
+    out_reclip_p = open(dst_reclip_imgid_bboxes_map_file, 'w')
+
+    for imgid, bboxes in reclip_imgid_bboxes_map.items():
+        str_bboxes = ','.join(bboxes)
+        out_reclip_p.write("%s,%s\n" % (imgid, str_bboxes))
+    out_reclip_p.close()
 
     print("done..")
 
@@ -831,6 +854,21 @@ def gen_vis_with_jpg_xml(src_jpg_dir, src_xml_dir, dst_vis_dir):
         )
 
 
+def vis_imgid_associated_bboxes(src_img_dir, src_raw_map_file, src_crop_map_file, src_reclip_map_file):
+    '''
+    vis bboxes on img, according to the imgid-bboxes files.
+      i) get bboxes list from imgid-bboxes file
+     ii) call `visionalize_bboxes_list_on_img_dat` to gen embedded imgs.
+    iii) save img.
+
+    :param src_img_dir:
+    :param src_raw_map_file:
+    :param src_crop_map_file:
+    :param src_reclip_map_file:
+    :return:
+    '''
+
+
 def Test_gen_slice_patches_in_pascal_format():
     '''
     test gen slice patches in pascal format..
@@ -850,6 +888,7 @@ def Test_gen_slice_patches_in_pascal_format():
 
     dst_raw_map_file = newvocdir + os.sep + "raw_imgid_bboxes_map.csv"
     dst_crop_map_file = newvocdir + os.sep + "crop_imgid_bboxes_map.csv"
+    dst_reclip_map_file = newvocdir + os.sep + "reclip_imgid_bboxes_map.csv"
 
     if not os.path.exists(dst_img_dir):
         os.makedirs(dst_img_dir)
@@ -870,13 +909,52 @@ def Test_gen_slice_patches_in_pascal_format():
         src_bboxes_type='rectangle',
         src_bboxes_scale_shape=None,
         dst_raw_imgid_bboxes_map_file=dst_raw_map_file,
-        dst_cropped_imgid_bboxes_map_file=dst_crop_map_file
+        dst_cropped_imgid_bboxes_map_file=dst_crop_map_file,
+        dst_reclip_imgid_bboxes_map_file=dst_reclip_map_file
     )
     gen_vis_with_jpg_xml(
         src_jpg_dir=dst_img_dir,
         src_xml_dir=dst_xml_dir,
         dst_vis_dir=dst_vis_dir
     )
+
+    raw_map_file = get_imgid_bboxes_map_from_file(src_imgid_boxes_map_file=dst_raw_map_file)
+    print("raw_map_file: ", raw_map_file)
+
+    crop_map_file = get_imgid_bboxes_map_from_file(src_imgid_boxes_map_file=dst_crop_map_file)
+    print("crop_map_file: ", crop_map_file)
+
+    reclip_map_file = get_imgid_bboxes_map_from_file(src_imgid_boxes_map_file=dst_reclip_map_file)
+    print("reclip_map_file: ", reclip_map_file)
+
+    for imgid, raw_bboxes_list in raw_map_file.items():
+        imgpath = os.path.join(imgs_dir, imgid + ".jpg")
+        imgpath_save = os.path.join(dst_vis_dir, imgid+"_with_all_bboxes.jpg")
+        if not os.path.exists(imgpath):
+            raise Exception('%s not exists!' % (imgpath))
+        else:
+            img = cv2.imread(imgpath)
+        img = visionalize_bboxes_list_on_img_dat(
+            src_img_data=img,
+            src_bboxes_list=raw_bboxes_list,
+            src_color_idx=0
+        )
+        crop_bboxes_list = crop_map_file[imgid]
+        img = visionalize_bboxes_list_on_img_dat(
+            src_img_data=img,
+            src_bboxes_list=crop_bboxes_list,
+            src_color_idx=1
+        )
+
+        reclip_bboxes_list = reclip_map_file[imgid]
+        img = visionalize_bboxes_list_on_img_dat(
+            src_img_data=img,
+            src_bboxes_list=reclip_bboxes_list,
+            src_color_idx=2
+        )
+
+        cv2.imwrite(imgpath_save, img)
+
 
 
 def gen_patches_voc2voc_format(dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300,
