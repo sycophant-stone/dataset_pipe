@@ -230,13 +230,13 @@ def statistic_bbox_distribution(src_xml_dir,src_img_dir,src_sml_size_thresh, src
     blen = len(np_bboxes_area)
     print("bmax:%s, bmin:%s, blen:%s, hbin:%s"%(bmax, bmin, blen, src_hist_bin_num))
 
-    min_xmls = get_xml_by_area(area_xml_map,bmin)
-    for idx,mx in enumerate(min_xmls):
-        print("%s/%s for bmin xml: %s"%(idx+1, len(min_xmls), mx))
+    # min_xmls = get_xml_by_area(area_xml_map,bmin)
+    # for idx,mx in enumerate(min_xmls):
+    #     print("%s/%s for bmin xml: %s"%(idx+1, len(min_xmls), mx))
 
-    max_xmls = get_xml_by_area(area_xml_map,bmax)
-    for idx, mx in enumerate(max_xmls):
-        print("%s/%s for bmax xml: %s" % (idx+1, len(max_xmls), mx))
+    # max_xmls = get_xml_by_area(area_xml_map,bmax)
+    # for idx, mx in enumerate(max_xmls):
+    #     print("%s/%s for bmax xml: %s" % (idx+1, len(max_xmls), mx))
 
     print("running.. gen bin xml map")
     bin_xml_map, bin_bboxes_number_map = gen_bin_xml_map(

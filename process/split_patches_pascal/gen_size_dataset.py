@@ -198,7 +198,7 @@ def a_belong_b(a, b):
     :param b:
     :return:
     '''
-    if a[0] > b[0] and a[1] > b[1] and a[2] < b[2] and a[3] < b[3]:
+    if a[0] >= b[0] and a[1] >= b[1] and a[2] <= b[2] and a[3] <= b[3]:
         return True
     else:
         return False
@@ -668,7 +668,7 @@ def gen_slice_patches_in_pascal_format(
         h, w, c = pascal_voc_ann.get_size()
         boxes_list = []
         imgid = GET_BARENAME(imgpath)
-        print("raw bboxes: ", bboxes)
+
         for (idx, box) in enumerate(bboxes):
             xmin, ymin, xmax, ymax = box[1:5]
             if imgid not in raw_imgid_bboxes_map:
@@ -716,7 +716,7 @@ def gen_slice_patches_in_pascal_format(
             # debug
             # visionalize.visionalize_bboxes_list_on_img(
             #     src_img_file=imgpath,
-            #     dst_img_file="/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/" + GET_BARENAME(
+            #     dst_img_file="/ssd/hnren/Data/dataset_pipe/eva/test/" + GET_BARENAME(
             #         imgpath) + "_box%s.jpg" % (idx),
             #     src_bboxes_list=[[cxmin, cymin, cxmax, cymax]])
 
@@ -928,15 +928,15 @@ def Test_gen_slice_patches_in_pascal_format():
     '''
     test gen slice patches in pascal format..
     test factory:
-    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/
-    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/JPEGImages/ch01011_20190322_ch01011_20190322084000.mp4.cut.mp4_003000.jpg
-    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/Annotations/ch01011_20190322_ch01011_20190322084000.mp4.cut.mp4_003000.xml
-    /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/
+    /ssd/hnren/Data/dataset_pipe/eva/source/
+    /ssd/hnren/Data/dataset_pipe/eva/source/JPEGImages/ch01001_20190318_ch01001_20190318110500.mp4.cut.mp4_003000jpg
+    /ssd/hnren/Data/dataset_pipe/eva/source/Annotations/ch01001_20190318_ch01001_20190318110500.mp4.cut.mp4_003000.xml
+    /ssd/hnren/Data/dataset_pipe/eva/test/
     :return:
     '''
-    imgs_dir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/source/JPEGImages/"
-    xmls_dir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/source/Annotations/"
-    newvocdir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/test/"
+    imgs_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/JPEGImages/"
+    xmls_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/Annotations/"
+    newvocdir = "/ssd/hnren/Data/dataset_pipe/eva/test/"
     dst_img_dir = os.path.join(newvocdir, "JPEGImages")
     dst_xml_dir = os.path.join(newvocdir, "Annotations")
     dst_vis_dir = os.path.join(newvocdir, "JPEG_with_anno")
