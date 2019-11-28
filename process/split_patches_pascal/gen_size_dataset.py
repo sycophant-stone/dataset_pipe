@@ -186,6 +186,24 @@ def get_related_bboxes(candinates, main_box):
     return need_psotprocess_boxes
 
 
+def a_belong_b(a, b):
+    '''
+    bbox A belongs to B.
+    means:
+        B_xmin<A_xmin
+        B_ymin<A_ymin
+        A_xmax<B_xmax
+        A_ymax<B_ymax
+    :param a:
+    :param b:
+    :return:
+    '''
+    if a[0] > b[0] and a[1] > b[1] and a[2] < b[2] and a[3] < b[3]:
+        return True
+    else:
+        return False
+
+
 def get_related_bboxes_with_input_list(candinates, main_box):
     '''
     filter related bboxes
@@ -212,13 +230,16 @@ def get_related_bboxes_with_input_list(candinates, main_box):
         #     main_box[1], main_box[2], main_box[3]))
         iou, xmin, ymin, xmax, ymax = compute_IoU(candi_box[0:4],
                                                   main_box)  # whether original gtboxes overlap with the img region.
-        # print("result iou:%s with [%s, %s, %s, %s]" % (iou, xmin, ymin, xmax, ymax))
-        # print("iou",iou)
         if iou > 0:
-            if (xmax - xmin) <= 30 or (ymax - ymin) <= 30:
+            if ((xmax - xmin) <= 30 or (ymax - ymin) <= 30) and not a_belong_b(a=candi_box, b=main_box):
+                # print("too small region.. ignore.. iou:%s with [%s, %s, %s, %s] with diffx: %s, diffy: %s" % (
+                #     iou, xmin, ymin, xmax, ymax, (xmax - xmin), (ymax - ymin)))
                 need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 1])
             else:
+                # print("satisfied region.. take it.. iou:%s with [%s, %s, %s, %s] with diffx: %s, diffy: %s" % (
+                #     iou, xmin, ymin, xmax, ymax, (xmax - xmin), (ymax - ymin)))
                 need_psotprocess_boxes.append([xmin, ymin, xmax, ymax, 0])
+    # print("==============================")
     return need_psotprocess_boxes
 
 
@@ -516,12 +537,41 @@ def gen_xcyctoxy(src_center_list, src_expand_size, src_img_shape):
     :return:
     '''
     xcenter, ycenter = src_center_list
-    expand_widht, expand_height = src_expand_size
+    expand_width, expand_height = src_expand_size
     img_width, img_height = src_img_shape
-    xmin = xcenter - expand_widht / 2 if xcenter - expand_widht / 2 > 0 else 0
+    xmin = xcenter - expand_width / 2 if xcenter - expand_width / 2 > 0 else 0
     ymin = ycenter - expand_height / 2 if ycenter - expand_height / 2 > 0 else 0
-    xmax = xcenter + expand_widht / 2 if xcenter + expand_widht / 2 < img_width else img_width - 1
+    xmax = xcenter + expand_width / 2 if xcenter + expand_width / 2 < img_width else img_width - 1
     ymax = ycenter + expand_height / 2 if ycenter + expand_height / 2 < img_height else img_height - 1
+
+    deltax = 0
+    deltay = 0
+    # we suppose the crop region not bigger than img region..
+    if xmin == 0:
+        deltax = expand_width / 2 - xcenter
+        if (xmax + deltax < img_width):
+            xmax = xmax + deltax
+        else:
+            raise Exception("xmax(%s) + deltax(%s) exceed the img right boundary(%s)" % (xmax, deltax, img_width))
+    elif xmax == img_width - 1:
+        deltax = expand_width / 2 - (img_width - 1 - xcenter)
+        if (xmin - deltax) > 0:
+            xmin = xmin - deltax
+        else:
+            raise Exception("xmin(%s) - deltax(%s) exceed the img left boundary(0)" % (xmin, deltax))
+
+    if ymin == 0:
+        deltay = expand_height / 2 - ycenter
+        if (ymax + deltay < img_height):
+            ymax = ymax + deltay
+        else:
+            raise Exception("ymax(%s) + deltay(%s) exceed the img bottom boundary(%s)" % (ymax, deltay, img_height))
+    if ymax == img_height - 1:
+        deltay = expand_height / 2 - (img_height - 1 - ycenter)
+        if (ymin - deltay) > 0:
+            ymin = ymin - deltay
+        else:
+            raise Exception("ymin(%s) - deltay(%s) exceed the img top boundary(0)" % (ymin, deltay))
 
     return [xmin, ymin, xmax, ymax]
 
@@ -601,6 +651,7 @@ def gen_slice_patches_in_pascal_format(
     raw_imgid_bboxes_map = {}  # imgid,b0xmin b0ymin b0xmax b0ymax,b1 b1 b1 b1,...
     cropped_imgid_bboxes_map = {}  # not the bbox, but the cropped rectangle region for statifying output img size.
     reclip_imgid_bboxes_map = {}  # reclip bboxes in cropped img rectangle.
+
     for processid, imgpath in enumerate(src_img_list):
         if len(src_img_list) > 100 and processid % (len(src_img_list) / 100) == 0:
             print("now at %s/%s .. " % (processid, len(src_img_list)))
@@ -617,6 +668,7 @@ def gen_slice_patches_in_pascal_format(
         h, w, c = pascal_voc_ann.get_size()
         boxes_list = []
         imgid = GET_BARENAME(imgpath)
+        print("raw bboxes: ", bboxes)
         for (idx, box) in enumerate(bboxes):
             xmin, ymin, xmax, ymax = box[1:5]
             if imgid not in raw_imgid_bboxes_map:
@@ -656,8 +708,10 @@ def gen_slice_patches_in_pascal_format(
                                                       src_img_shape=[w, h])
 
             # if idx == 0:
-            #     print("box%d with crop region [%s,%s,%s,%s], with expand [%s(w), %s(h)], center [%s, %s]" % (
-            #         idx, cxmin, cymin, cxmax, cymax, expand_width, expand_height, xcenter, ycenter))
+            # print(
+            #     "box%d with crop region [%s,%s,%s,%s], with expand [%s(w), %s(h)], center [%s, %s], with objects' [%s, %s, %s, %s]" % (
+            #         idx, cxmin, cymin, cxmax, cymax, expand_width, expand_height, xcenter, ycenter, xmin, ymin, xmax,
+            #         ymax))
 
             # debug
             # visionalize.visionalize_bboxes_list_on_img(
@@ -844,6 +898,7 @@ def gen_vis_with_jpg_xml(src_jpg_dir, src_xml_dir, dst_vis_dir):
         xmlname = GET_BARENAME(img_file) + ".xml"
         xml_file = os.path.join(src_xml_dir, xmlname)
         imgid, str_bbox_line = gen_imgid_bboxes_map(src_xml_file=xml_file)
+        # print("xml_file: %s with str_bbox_line: %s"%(xmlname, str_bbox_line))
         bboxes = restore_from_str_box_line(src_str_box_line=str_bbox_line)
         visname = GET_BARENAME(img_file) + "_vis.jpg"
         vis_file = os.path.join(dst_vis_dir, visname)
@@ -879,9 +934,9 @@ def Test_gen_slice_patches_in_pascal_format():
     /ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/
     :return:
     '''
-    imgs_dir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/JPEGImages/"
-    xmls_dir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/source/Annotations/"
-    newvocdir = "/ssd/hnren/Data/dataset_pipe/newcrop_patches_int/test/"
+    imgs_dir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/source/JPEGImages/"
+    xmls_dir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/source/Annotations/"
+    newvocdir = "/ssd/hnren/Data/dataset_pipe/newcropv2_patches_int/test/"
     dst_img_dir = os.path.join(newvocdir, "JPEGImages")
     dst_xml_dir = os.path.join(newvocdir, "Annotations")
     dst_vis_dir = os.path.join(newvocdir, "JPEG_with_anno")
@@ -929,32 +984,64 @@ def Test_gen_slice_patches_in_pascal_format():
 
     for imgid, raw_bboxes_list in raw_map_file.items():
         imgpath = os.path.join(imgs_dir, imgid + ".jpg")
-        imgpath_save = os.path.join(dst_vis_dir, imgid+"_with_all_bboxes.jpg")
+        imgpath_raw_save = os.path.join(dst_vis_dir, imgid + "_with_rawbox.jpg")
+        imgpath_crop_save = os.path.join(dst_vis_dir, imgid + "_with_cropbox.jpg")
+        imgpath_reclip_save = os.path.join(dst_vis_dir, imgid + "_with_reclip.jpg")
+        imgpath_save = os.path.join(dst_vis_dir, imgid + "_with_all_bboxes.jpg")
         if not os.path.exists(imgpath):
             raise Exception('%s not exists!' % (imgpath))
         else:
-            img = cv2.imread(imgpath)
-        img = visionalize_bboxes_list_on_img_dat(
-            src_img_data=img,
+            oimg = cv2.imread(imgpath)
+        rawimg = oimg.copy()
+        cropimg = oimg.copy()
+        reclipimg = oimg.copy()
+        allimg = oimg
+
+        rawimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=rawimg,
             src_bboxes_list=raw_bboxes_list,
-            src_color_idx=0
+            src_color_idx=0,
+            src_color_width=1
         )
+        allimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=allimg,
+            src_bboxes_list=raw_bboxes_list,
+            src_color_idx=0,
+            src_color_width=1
+        )
+
         crop_bboxes_list = crop_map_file[imgid]
-        img = visionalize_bboxes_list_on_img_dat(
-            src_img_data=img,
+        cropimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=cropimg,
             src_bboxes_list=crop_bboxes_list,
-            src_color_idx=1
+            src_color_idx=1,
+            src_color_width=2
+        )
+        allimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=allimg,
+            src_bboxes_list=crop_bboxes_list,
+            src_color_idx=1,
+            src_color_width=2
         )
 
         reclip_bboxes_list = reclip_map_file[imgid]
-        img = visionalize_bboxes_list_on_img_dat(
-            src_img_data=img,
+        reclipimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=reclipimg,
             src_bboxes_list=reclip_bboxes_list,
-            src_color_idx=2
+            src_color_idx=2,
+            src_color_width=3
+        )
+        allimg = visionalize_bboxes_list_on_img_dat(
+            src_img_data=allimg,
+            src_bboxes_list=reclip_bboxes_list,
+            src_color_idx=2,
+            src_color_width=3
         )
 
-        cv2.imwrite(imgpath_save, img)
-
+        cv2.imwrite(imgpath_raw_save, rawimg)
+        cv2.imwrite(imgpath_crop_save, cropimg)
+        cv2.imwrite(imgpath_reclip_save, reclipimg)
+        cv2.imwrite(imgpath_save, allimg)
 
 
 def gen_patches_voc2voc_format(dataset_list, src_refine_rectangle_size, req_imgsize=300, img_output_size=300,

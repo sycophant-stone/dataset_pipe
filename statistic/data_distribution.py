@@ -179,18 +179,9 @@ def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
     imgs_list = file.list_all_files(src_img_dir, exts=["jpg"])
 
     img_path_map = {}
-    cnt=10
     for imgpath in imgs_list:
         imgname = GET_BARENAME(imgpath)
         img_path_map[imgname] = imgpath
-        if imgname == 'ch01001_20190302_ch01001_20190302135000.mp4.cut.mp4_001500_crop_13':
-            print("fitted with imgname: %s"%(imgname))
-            raise Exception("stop..")
-        # print("imgname: %s, img_path: %s"%(imgname, imgpath))
-        # if cnt==0:
-        #     raise Exception("stop ..")
-        # else:
-        #     cnt=cnt-1
 
     for idx,xml in enumerate(xmls_list):
         pascal_voc_ann = PascalVocAnn(xml=xml)
@@ -255,12 +246,12 @@ def statistic_bbox_distribution(src_xml_dir,src_img_dir,src_sml_size_thresh, src
         src_area_bboxenum_map=area_bboxenum_map
     )
     print("running.. saving imgs by bin xml map")
-    # save_imgs_according_bin_xml_map(
-    #     src_img_dir=src_img_dir,
-    #     src_bin_xml_map=bin_xml_map,
-    #     dst_img_dir=dst_img_dir,
-    #     src_bin_boxes_number_map= bin_bboxes_number_map
-    # )
+    save_imgs_according_bin_xml_map(
+        src_img_dir=src_img_dir,
+        src_bin_xml_map=bin_xml_map,
+        dst_img_dir=dst_img_dir,
+        src_bin_boxes_number_map= bin_bboxes_number_map
+    )
     print("running.. visionalize gt bbox , in distributions folders.")
     visionalize_gt_with_distributions(
         src_img_dir= dst_img_dir,

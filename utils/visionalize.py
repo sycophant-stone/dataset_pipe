@@ -25,14 +25,14 @@ def visionalize_bboxes_list_on_img(src_img_file, dst_img_file, src_bboxes_list):
 
     cv2.imwrite(dst_img_file,img)
 
-def visionalize_bboxes_list_on_img_dat(src_img_data, src_bboxes_list, src_color_idx):
+def visionalize_bboxes_list_on_img_dat(src_img_data, src_bboxes_list, src_color_idx, src_color_width):
     '''
     visionalize bboxes at given img_dat, then return the visionalized img_data(within bboxes).
     :param src_img_data:
     :param src_bboxes_list:
     :return:
     '''
-    
+
     val_rs = [0, 85, 170, 255]
     val_gs = [85, 170, 255, 0]
     val_bs = [170, 255, 0, 85]
@@ -43,6 +43,6 @@ def visionalize_bboxes_list_on_img_dat(src_img_data, src_bboxes_list, src_color_
         color_g = val_gs[src_color_idx % 4]
         color_b = val_bs[src_color_idx % 4]
         color = (color_r, color_g, color_b)
-        img = cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, 2)
+        img = cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, src_color_width)
 
     return img
