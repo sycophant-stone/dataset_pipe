@@ -7,13 +7,15 @@ import utils.shell as shell
 from utils.log_table import LogTable
 from dataset_lib.pascal_voc import PascalVocAnn
 
+
 def GET_BARENAME(fullname):
     try:
         return os.path.splitext(os.path.basename(fullname))[0]
     except:
-        raise Exception("%s os actions error "%(fullname))
+        raise Exception("%s os actions error " % (fullname))
 
-def gen_xml_hist_info_map(src_xml_dir, src_hist_bin_numbers):
+
+def gen_xml_hist_info_map(src_xml_dir, src_hist_bin_numbers, dst_hist_distribute_file):
     '''
     gen xml distributions and
     gen histogram's info and
@@ -29,57 +31,59 @@ def gen_xml_hist_info_map(src_xml_dir, src_hist_bin_numbers):
     '''
     xmls_list = file.list_all_files(src_xml_dir, exts=["xml"])
 
-    print("Target xml dir: %s, with len: %s"%(src_xml_dir, len(xmls_list)))
+    print("Target xml dir: %s, with len: %s" % (src_xml_dir, len(xmls_list)))
 
     bboxes_area_list = []
     area_bboxenum_map = {}
-    area_xml_map={}
-    for idx,xml in enumerate(xmls_list):
+    area_xml_map = {}
+    for idx, xml in enumerate(xmls_list):
         pascal_voc_ann = PascalVocAnn(xml=xml)
         bboxes = pascal_voc_ann.get_boxes()
         for box in bboxes:
             box = [int(b) for b in box[1:]]
-            h = box[3]-box[1]
-            w = box[2]-box[0]
-            area = float(h)*float(w)
+            h = box[3] - box[1]
+            w = box[2] - box[0]
+            area = float(h) * float(w)
             bboxes_area_list.append(area)
             if area not in area_xml_map:
-                area_xml_map[area]=set([])
+                area_xml_map[area] = set([])
             area_xml_map[area].add(xml)
             if area not in area_bboxenum_map:
                 tmp = 1
                 area_bboxenum_map[area] = tmp
             else:
                 tmp = area_bboxenum_map[area]
-                area_bboxenum_map[area] = tmp+1
+                area_bboxenum_map[area] = tmp + 1
 
     np_bboxes_area = np.array(bboxes_area_list)
 
     bmax = np.max(np_bboxes_area)
     bmin = np.min(np_bboxes_area)
     blen = len(np_bboxes_area)
-    hbinsize = (float(bmax)-float(bmin))/src_hist_bin_numbers
-    print("bmax:%s, bmin:%s, blen:%s, hbin:%s, hbinsize:%s"%(bmax, bmin, blen, src_hist_bin_numbers, hbinsize))
-    nlist,bin_edge_list = np.histogram(np_bboxes_area,int(src_hist_bin_numbers))
+    hbinsize = (float(bmax) - float(bmin)) / src_hist_bin_numbers
+    print("bmax:%s, bmin:%s, blen:%s, hbin:%s, hbinsize:%s" % (bmax, bmin, blen, src_hist_bin_numbers, hbinsize))
+    nlist, bin_edge_list = np.histogram(np_bboxes_area, int(src_hist_bin_numbers))
     print("-----------------------------------------------------------")
     print("Tips:  those info below is belong to bbox instead of xmls..")
     lt = LogTable(["area distributions", "bboxes counts"])
     for idx, n in enumerate(nlist):
         edgeS = int(bin_edge_list[idx])
-        edgeE = int(bin_edge_list[idx+1])
-        lt.add_line(["%s -> %s"%(edgeS, edgeE), "%s"%(n)])
+        edgeE = int(bin_edge_list[idx + 1])
+        lt.add_line(["%s -> %s" % (edgeS, edgeE), "%s" % (n)])
     lt.show()
+    lt.savefile(dst_logtable_file=dst_hist_distribute_file)
 
-    return nlist,bin_edge_list,np_bboxes_area,area_xml_map,area_bboxenum_map
+    return nlist, bin_edge_list, np_bboxes_area, area_xml_map, area_bboxenum_map
+
 
 def get_xml_by_area(src_area_xml_map, area):
     if area in src_area_xml_map.keys():
         return src_area_xml_map[area]
     else:
-        print("area of %s is Not in src_area_xml_map"%(area))
+        print("area of %s is Not in src_area_xml_map" % (area))
 
 
-def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list,src_area_bboxenum_map):
+def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list, src_area_bboxenum_map):
     '''
     gen bin xml map
     :param src_area_xml_map:
@@ -91,10 +95,10 @@ def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list,src_ar
         val: corresponding xmls
     '''
     # gen bin's start end map
-    start_end_map={}
+    start_end_map = {}
     for idx, cnt in enumerate(src_bin_cnt_list):
         edgeS = int(src_bin_edge_list[idx])
-        edgeE = int(src_bin_edge_list[idx+1])
+        edgeE = int(src_bin_edge_list[idx + 1])
         start_end_map[edgeS] = edgeE
     # print("start_end_map: ", start_end_map)
 
@@ -105,7 +109,7 @@ def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list,src_ar
     bin_xml_map = {}
     bin_bboxes_number_map = {}
     # debug_cnt=10
-    for area,xmls in src_area_xml_map.items():
+    for area, xmls in src_area_xml_map.items():
         for bin_slice in sorted_start_end_list:
             es = float(bin_slice[0])
             ee = float(bin_slice[1])
@@ -113,9 +117,9 @@ def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list,src_ar
             if float(area) > ee:
                 continue
             else:
-                binkey = '{}-{}'.format(int(es),int(ee))
+                binkey = '{}-{}'.format(int(es), int(ee))
                 if binkey not in bin_xml_map:
-                    bin_xml_map[binkey]=set([])
+                    bin_xml_map[binkey] = set([])
                 for xml in xmls:
                     bin_xml_map[binkey].add(xml)
 
@@ -132,10 +136,10 @@ def gen_bin_xml_map(src_area_xml_map, src_bin_cnt_list, src_bin_edge_list,src_ar
             #     debug_cnt=debug_cnt-1
     # print(bin_xml_map)
 
-    return bin_xml_map,bin_bboxes_number_map
+    return bin_xml_map, bin_bboxes_number_map
 
 
-def save_imgs_according_bin_xml_map(src_img_dir, src_bin_xml_map, dst_img_dir,src_bin_boxes_number_map):
+def save_imgs_according_bin_xml_map(src_img_dir, src_bin_xml_map, dst_img_dir, src_bin_boxes_number_map):
     '''
     save imgs according bin xml map.
     root/
@@ -154,19 +158,30 @@ def save_imgs_according_bin_xml_map(src_img_dir, src_bin_xml_map, dst_img_dir,sr
             a map. key is bin edge; value is corresponding bboxes number which belongs to this bin edge.
     :return:
     '''
-    for edge_info,xmls in src_bin_xml_map.items():
-        print("process.. %s with %s xmls , with %s bboxes"%(edge_info, len(xmls), src_bin_boxes_number_map[edge_info]))
-        round_edge_dir = os.path.join(dst_img_dir, edge_info.replace('-','_'))
+    for edge_info, xmls in src_bin_xml_map.items():
+        print(
+            "process.. %s with %s xmls , with %s bboxes" % (edge_info, len(xmls), src_bin_boxes_number_map[edge_info]))
+        round_edge_dir = os.path.join(dst_img_dir, edge_info.replace('-', '_'))
+        round_Jpeg_dir = os.path.join(round_edge_dir, "JPEGImages")
+        round_Anno_dir = os.path.join(round_edge_dir, "Annotations")
         if not os.path.exists(round_edge_dir):
             os.mkdir(round_edge_dir)
+        if not os.path.exists(round_Jpeg_dir):
+            os.mkdir(round_Jpeg_dir)
+        if not os.path.exists(round_Anno_dir):
+            os.mkdir(round_Anno_dir)
+
         for xml in xmls:
-            barename=GET_BARENAME(xml)
+            barename = GET_BARENAME(xml)
             src_round_img_path = src_img_dir + os.sep + barename + '.jpg'
             if not os.path.exists(src_round_img_path):
-                raise Exception("%s not exists!"%(src_round_img_path))
-            cmd = 'cp %s %s'%(src_round_img_path, round_edge_dir)
+                raise Exception("%s not exists!" % (src_round_img_path))
+            cmd = 'cp %s %s' % (src_round_img_path, round_Jpeg_dir)
+            shell.run_system_command(cmd)
+            cmd = 'cp %s %s' % (xml, round_Anno_dir)
             shell.run_system_command(cmd)
         # raise Exception("stop ..")
+
 
 def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
     '''
@@ -183,28 +198,57 @@ def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
         imgname = GET_BARENAME(imgpath)
         img_path_map[imgname] = imgpath
 
-    for idx,xml in enumerate(xmls_list):
+    for idx, xml in enumerate(xmls_list):
         pascal_voc_ann = PascalVocAnn(xml=xml)
         imgname = GET_BARENAME(xml)
         if imgname not in img_path_map.keys():
             # raise Exception("%s is Not in img_path_map"%(imgname))
-            print("%s is Not in img_path_map"%(imgname))
+            print("%s is Not in img_path_map" % (imgname))
             continue
         # img_path = os.path.join(img_path_map[imgname], imgname)
         img_path = img_path_map[imgname]
         if not os.path.exists(img_path):
-            raise Exception("%s not exists!"%(img_path))
+            raise Exception("%s not exists!" % (img_path))
         else:
             img = cv2.imread(img_path)
         bboxes = pascal_voc_ann.get_boxes()
+        if bboxes == None:
+            raise Exception("idx:%s with xml:%s" % (idx, xml))
         for box in bboxes:
             box = [int(b) for b in box[1:]]
             color = (255, 0, 0)
             img = cv2.rectangle(img, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), color, 2)
-        cv2.imwrite(img_path,img)
+        cv2.imwrite(img_path, img)
 
 
-def statistic_bbox_distribution(src_xml_dir,src_img_dir,src_sml_size_thresh, src_hist_bin_num, dst_img_dir):
+def Test_visionalize_gt_with_distributions():
+    imgid = "ch00005_20190217_ch00005_20190217105530.mp4.cut.mp4_004500_crop1"
+    img_lib_dir = "/ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_4584/JPEGImages/"
+    xml_lib_dir = "/ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_4584/Annotations/"
+    # prepare src img dir and src xml dir
+    test_env_dir = '/ssd/hnren/Data/dataset_pipe/newcropv3/test/Test_visionalize_gt_with_distributions'
+    if not os.path.exists(test_env_dir):
+        os.makedirs(test_env_dir)
+    src_img_dir = os.path.join(test_env_dir, "JPEGImages")
+    src_xml_dir = os.path.join(test_env_dir, "Annotations")
+    if not os.path.exists(src_img_dir):
+        os.mkdir(src_img_dir)
+    if not os.path.exists(src_xml_dir):
+        os.mkdir(src_xml_dir)
+    cmd = "cp %s/%s.jpg %s/" % (img_lib_dir, imgid, src_img_dir)
+    shell.run_system_command(cmd)
+
+    cmd = "cp %s/%s.xml %s/" % (xml_lib_dir, imgid, src_xml_dir)
+    shell.run_system_command(cmd)
+
+    visionalize_gt_with_distributions(
+        src_img_dir=src_img_dir,
+        src_xml_dir=src_xml_dir
+    )
+
+
+def statistic_bbox_distribution(src_xml_dir, src_img_dir, src_sml_size_thresh, src_hist_bin_num, dst_img_dir,
+                                dst_hist_distribute_file):
     '''
     statistic bbox distributions.
     :param src_xml_dir:
@@ -215,20 +259,21 @@ def statistic_bbox_distribution(src_xml_dir,src_img_dir,src_sml_size_thresh, src
 
     print('running.. gen xml hist info map')
 
-    nlist,\
-    bin_edge_list,\
-    np_bboxes_area,\
-    area_xml_map,\
+    nlist, \
+    bin_edge_list, \
+    np_bboxes_area, \
+    area_xml_map, \
     area_bboxenum_map \
         = gen_xml_hist_info_map(
         src_xml_dir=src_xml_dir,
-        src_hist_bin_numbers=int(src_hist_bin_num)
+        src_hist_bin_numbers=int(src_hist_bin_num),
+        dst_hist_distribute_file=dst_hist_distribute_file,
     )
 
     bmax = np.max(np_bboxes_area)
     bmin = np.min(np_bboxes_area)
     blen = len(np_bboxes_area)
-    print("bmax:%s, bmin:%s, blen:%s, hbin:%s"%(bmax, bmin, blen, src_hist_bin_num))
+    print("bmax:%s, bmin:%s, blen:%s, hbin:%s" % (bmax, bmin, blen, src_hist_bin_num))
 
     # min_xmls = get_xml_by_area(area_xml_map,bmin)
     # for idx,mx in enumerate(min_xmls):
@@ -250,24 +295,26 @@ def statistic_bbox_distribution(src_xml_dir,src_img_dir,src_sml_size_thresh, src
         src_img_dir=src_img_dir,
         src_bin_xml_map=bin_xml_map,
         dst_img_dir=dst_img_dir,
-        src_bin_boxes_number_map= bin_bboxes_number_map
+        src_bin_boxes_number_map=bin_bboxes_number_map
     )
     print("running.. visionalize gt bbox , in distributions folders.")
     visionalize_gt_with_distributions(
-        src_img_dir= dst_img_dir,
-        src_xml_dir= src_xml_dir
+        src_img_dir=dst_img_dir,
+        src_xml_dir=src_xml_dir
     )
 
+
 def Test_np_where():
-    np_bboxes_area = np.array([1,2,3,4,55,66,1,77,88,999])
+    np_bboxes_area = np.array([1, 2, 3, 4, 55, 66, 1, 77, 88, 999])
     print("np_bboxes_area: ", np_bboxes_area)
-    inds=np.squeeze(np.where(1==np_bboxes_area))
-    inds=list(inds)
+    inds = np.squeeze(np.where(1 == np_bboxes_area))
+    inds = list(inds)
     print("inds: ", inds)
     for ind in inds:
         print(ind)
         print(np_bboxes_area[ind])
 
 
-if __name__=='__main__':
-    Test_np_where()
+if __name__ == '__main__':
+    # Test_np_where()
+    Test_visionalize_gt_with_distributions()

@@ -25,16 +25,16 @@
         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/cropped_imgid_bboxes_map_file.csv  {{daily_work_dir}}/search/
         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/reclip_imgid_bboxes_map_file.csv  {{daily_work_dir}}/search/
 
-- scripts.search_by_imgid.vis_bboxes_by_imgid:
-    desc: 'vis raw objects bboxes, cropped region, reclip region in differrent imgs results'
-    cwd: {{daily_work_dir}}
-    input:
-      src_imgid: {{search_imgid}}
-      src_raw_map_file: {{daily_work_dir}}/search/raw_imgid_boxes_map.csv
-      src_crop_map_file: {{daily_work_dir}}/search/cropped_imgid_bboxes_map_file.csv
-      src_reclip_map_file: {{daily_work_dir}}/search//reclip_imgid_bboxes_map_file.csv
-      src_img_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/JPEGImages
-      dst_res_dir: {{daily_work_dir}}/search/res/{{search_imgid}}/scripts_res
+# - scripts.search_by_imgid.vis_bboxes_by_imgid:
+#     desc: 'vis raw objects bboxes, cropped region, reclip region in differrent imgs results'
+#     cwd: {{daily_work_dir}}
+#     input:
+#       src_imgid: {{search_imgid}}
+#       src_raw_map_file: {{daily_work_dir}}/search/raw_imgid_boxes_map.csv
+#       src_crop_map_file: {{daily_work_dir}}/search/cropped_imgid_bboxes_map_file.csv
+#       src_reclip_map_file: {{daily_work_dir}}/search//reclip_imgid_bboxes_map_file.csv
+#       src_img_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/JPEGImages
+#       dst_res_dir: {{daily_work_dir}}/search/res/{{search_imgid}}/scripts_res
 
 - process.split_patches_pascal.gen_size_dataset.Test_gen_slice_patches_in_pascal_format:
     desc: 'process.. single img gen slice results..'

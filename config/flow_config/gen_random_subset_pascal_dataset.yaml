@@ -112,3 +112,4 @@
       src_hist_bin_num: 20
     output:
       dst_img_dir: {{daily_work_dir}}/statistic_img_dir
+      dst_hist_distribute_file: {{daily_work_dir}}/statistic_img_dir/hist_distribute.txt

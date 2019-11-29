@@ -45,3 +45,8 @@ nvidia-docker run -it -v /ssd:/ssd --name hhnnrr_caffe bvlc/caffe:gpu /bin/bash
 ## v2
 
 python pipe.py --yaml config/flow_config/gen_random_subset_pascal_dataset.yaml --data_dir /ssd/hnren/Data/dataset_pipe/newcropv2 --baseline_dataset_dir /ssd/hnren/Data/coco_300px_head/FID_DID_HEAD_CLEAN_0 --caffe_python_dir /ssd/hnren/tf/1sd/caffe
+
+
+## search(gen) results by imgid
+
+python pipe.py --yaml config/flow_config/search_by_imgid.yaml --data_dir /ssd/hnren/Data/dataset_pipe/newcropv3 --baseline_dataset_dir /ssd/hnren/Data/coco_300px_head/FID_DID_HEAD_CLEAN_0 --caffe_python_dir /ssd/hnren/tf/1sd/caffe --search_imgid ch01001_20190217_ch01001_20190217110340.mp4.cut.mp4_001500
