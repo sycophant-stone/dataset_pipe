@@ -88,6 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--baseline_dataset_dir', type=str, help='INPUT: baseline dataset dir', required=True)
     parser.add_argument('--caffe_python_dir', type=str, help='INPUT: caffe python dir ', required=True)
     parser.add_argument('--end_step', type=str, help='INPUT: whether pre stop at the end_step.', required=False)
+    parser.add_argument('--search_imgid', type=str, help='INPUT: whether pre stop at the end_step.', required=False)
 
     args = parser.parse_args()
     content = file_get_contents(args.yaml)
@@ -105,7 +106,8 @@ if __name__ == '__main__':
     vars = {
         'data_dir': args.data_dir,
         'baseline_dataset_dir': args.baseline_dataset_dir,
-        'caffe_python_dir': args.caffe_python_dir
+        'caffe_python_dir': args.caffe_python_dir,
+        'search_imgid': args.search_imgid
     }
     yaml.Loader.add_constructor('!CONCAT', yaml_tags_concat.ConcatTag.from_yaml)
     yaml.Dumper.add_multi_representer(yaml_tags_concat.ConcatTag, yaml_tags_concat.ConcatTag.to_yaml)

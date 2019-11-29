@@ -924,7 +924,9 @@ def vis_imgid_associated_bboxes(src_img_dir, src_raw_map_file, src_crop_map_file
     '''
 
 
-def Test_gen_slice_patches_in_pascal_format():
+def Test_gen_slice_patches_in_pascal_format(src_imgs_dir,
+                                            src_xmls_dir,
+                                            dst_output_dir):
     '''
     test gen slice patches in pascal format..
     test factory:
@@ -934,16 +936,19 @@ def Test_gen_slice_patches_in_pascal_format():
     /ssd/hnren/Data/dataset_pipe/eva/test/
     :return:
     '''
-    imgs_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/JPEGImages/"
-    xmls_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/Annotations/"
-    newvocdir = "/ssd/hnren/Data/dataset_pipe/eva/test/"
-    dst_img_dir = os.path.join(newvocdir, "JPEGImages")
-    dst_xml_dir = os.path.join(newvocdir, "Annotations")
-    dst_vis_dir = os.path.join(newvocdir, "JPEG_with_anno")
+    # imgs_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/JPEGImages/"
+    # xmls_dir = "/ssd/hnren/Data/dataset_pipe/eva/source/Annotations/"
+    # newvocdir = "/ssd/hnren/Data/dataset_pipe/eva/test/"
+    imgs_dir = src_imgs_dir
+    xmls_dir = src_xmls_dir
 
-    dst_raw_map_file = newvocdir + os.sep + "raw_imgid_bboxes_map.csv"
-    dst_crop_map_file = newvocdir + os.sep + "crop_imgid_bboxes_map.csv"
-    dst_reclip_map_file = newvocdir + os.sep + "reclip_imgid_bboxes_map.csv"
+    dst_img_dir = os.path.join(dst_output_dir, "JPEGImages")
+    dst_xml_dir = os.path.join(dst_output_dir, "Annotations")
+    dst_vis_dir = os.path.join(dst_output_dir, "JPEG_with_anno")
+
+    dst_raw_map_file = dst_output_dir + os.sep + "raw_imgid_bboxes_map.csv"
+    dst_crop_map_file = dst_output_dir + os.sep + "crop_imgid_bboxes_map.csv"
+    dst_reclip_map_file = dst_output_dir + os.sep + "reclip_imgid_bboxes_map.csv"
 
     if not os.path.exists(dst_img_dir):
         os.makedirs(dst_img_dir)
@@ -1296,4 +1301,6 @@ if __name__ == "__main__":
     # pass
 
     # Test_gen_square_from_rectangle()
-    Test_gen_slice_patches_in_pascal_format()
+    Test_gen_slice_patches_in_pascal_format(src_imgs_dir="/ssd/hnren/Data/dataset_pipe/eva/source/JPEGImages/",
+                                            src_xmls_dir="/ssd/hnren/Data/dataset_pipe/eva/source/Annotations/",
+                                            dst_output_dir="/ssd/hnren/Data/dataset_pipe/eva/test/")

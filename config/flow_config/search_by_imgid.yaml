@@ -1,0 +1,47 @@
+{% set daily_work_dir = '%s' % (data_dir) %}
+
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/
+      - {{daily_work_dir}}/search
+      - {{daily_work_dir}}/search/JPEGImages
+      - {{daily_work_dir}}/search/Annotations
+      - {{daily_work_dir}}/search/res
+      - {{daily_work_dir}}/search/res/{{search_imgid}}/scripts_res
+      - {{daily_work_dir}}/search/res/{{search_imgid}}/process_res
+
+- utils.shell.run_system_commands:
+    desc: 'prepare ref img info data'
+    cwd: {{daily_work_dir}}
+    input:
+      cmd_lines:
+        - cp /ssd/hnren/Data/dataset_pipe/newcropv3/JPEGImages/{{search_imgid}}.jpg  {{daily_work_dir}}/search/JPEGImages/
+        - cp /ssd/hnren/Data/dataset_pipe/newcropv3/Annotations/{{search_imgid}}.xml  {{daily_work_dir}}/search/Annotations/
+        - cp /ssd/hnren/Data/dataset_pipe/newcropv3/raw_imgid_boxes_map.csv  {{daily_work_dir}}/search/
+        - cp /ssd/hnren/Data/dataset_pipe/newcropv3/cropped_imgid_bboxes_map_file.csv  {{daily_work_dir}}/search/
+        - cp /ssd/hnren/Data/dataset_pipe/newcropv3/reclip_imgid_bboxes_map_file.csv  {{daily_work_dir}}/search/
+
+- scripts.search_by_imgid.vis_bboxes_by_imgid:
+    desc: 'vis raw objects bboxes, cropped region, reclip region in differrent imgs results'
+    cwd: {{daily_work_dir}}
+    input:
+      src_imgid: {{search_imgid}}
+      src_raw_map_file: {{daily_work_dir}}/search/raw_imgid_boxes_map.csv
+      src_crop_map_file: {{daily_work_dir}}/search/cropped_imgid_bboxes_map_file.csv
+      src_reclip_map_file: {{daily_work_dir}}/search//reclip_imgid_bboxes_map_file.csv
+      src_img_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/JPEGImages
+      dst_res_dir: {{daily_work_dir}}/search/res/{{search_imgid}}/scripts_res
+
+- process.split_patches_pascal.gen_size_dataset.Test_gen_slice_patches_in_pascal_format:
+    desc: 'process.. single img gen slice results..'
+    cwd: {{daily_work_dir}}
+    input:
+      src_imgs_dir: {{daily_work_dir}}/search/JPEGImages
+      src_xmls_dir: {{daily_work_dir}}/search/Annotations
+      dst_output_dir: {{daily_work_dir}}/search/res/{{search_imgid}}/process_res
+
+
