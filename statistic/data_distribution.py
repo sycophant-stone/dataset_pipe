@@ -190,6 +190,7 @@ def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
     :param src_xml_dir:
     :return:
     '''
+    print("src_img_dir: %s with src_xml_dir: %s"%(src_img_dir,src_xml_dir))
     xmls_list = file.list_all_files(src_xml_dir, exts=["xml"])
     imgs_list = file.list_all_files(src_img_dir, exts=["jpg"])
 
