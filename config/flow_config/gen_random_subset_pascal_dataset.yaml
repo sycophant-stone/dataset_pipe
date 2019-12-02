@@ -33,14 +33,14 @@
         - cp /ssd/hnren/Data/dataset_pipe/process/pascal_process/create_* {{daily_work_dir}}/
         - rm {{caffe_python_dir}}/build_{{datset_dirname}}/* -rf ||true
 
-- utils.shell.run_system_commands:
-    desc: 'build caffe for this epoch'
-    cwd: {{caffe_python_dir}}/build_{{datset_dirname}}
-    input:
-      cmd_lines:
-        - cmake ../
-        - make -j
-        - make pycaffe
+# - utils.shell.run_system_commands:
+#     desc: 'build caffe for this epoch'
+#     cwd: {{caffe_python_dir}}/build_{{datset_dirname}}
+#     input:
+#       cmd_lines:
+#         - cmake ../
+#         - make -j
+#         - make pycaffe
 
 - process.pascal_process.cls.run:
     desc: 'gen pascal ImageSet/Main'
@@ -109,7 +109,7 @@
       src_xml_dir: {{datset_subpatches_dirname}}/Annotations
       src_img_dir: {{datset_subpatches_dirname}}/JPEGImages
       src_sml_size_thresh: 10
-      src_hist_bin_num: 20
+      src_hist_bin_num: 10
     output:
       dst_img_dir: {{daily_work_dir}}/statistic_img_dir
       dst_hist_distribute_file: {{daily_work_dir}}/statistic_img_dir/hist_distribute.txt

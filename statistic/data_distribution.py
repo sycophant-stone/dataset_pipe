@@ -186,6 +186,13 @@ def save_imgs_according_bin_xml_map(src_img_dir, src_bin_xml_map, dst_img_dir, s
 def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
     '''
     visionalize gt with distributions' folders.
+    in fact. len of distributed images are greater than len of xmls.
+    because there are different bouding boxes in the same image.
+        some of them belong to some kind of area distribution folder.
+        some of them belong to another area distribution folder.
+        in results, this image will be generated(copyed) into different folders. And it'll be more duplicated.
+        Then then length of img_list will be greater then length of xml_list.
+
     :param src_img_dir:
     :param src_xml_dir:
     :return:
@@ -193,21 +200,19 @@ def visionalize_gt_with_distributions(src_img_dir, src_xml_dir):
     print("src_img_dir: %s with src_xml_dir: %s"%(src_img_dir,src_xml_dir))
     xmls_list = file.list_all_files(src_xml_dir, exts=["xml"])
     imgs_list = file.list_all_files(src_img_dir, exts=["jpg"])
-
+    print("len of xmls_list: %s with len of imgs_list: %s"%(len(xmls_list), len(imgs_list)))
     img_path_map = {}
     for imgpath in imgs_list:
         imgname = GET_BARENAME(imgpath)
         img_path_map[imgname] = imgpath
 
-    for idx, xml in enumerate(xmls_list):
+    # for idx, xml in enumerate(xmls_list):
+    for idx, img_path in enumerate(imgs_list):
+        xml = GET_BARENAME(img_path)+".xml"
+        xml = os.path.join(src_xml_dir, xml)
         pascal_voc_ann = PascalVocAnn(xml=xml)
-        imgname = GET_BARENAME(xml)
-        if imgname not in img_path_map.keys():
-            # raise Exception("%s is Not in img_path_map"%(imgname))
-            print("%s is Not in img_path_map" % (imgname))
-            continue
-        # img_path = os.path.join(img_path_map[imgname], imgname)
-        img_path = img_path_map[imgname]
+        # imgname = GET_BARENAME(xml)
+
         if not os.path.exists(img_path):
             raise Exception("%s not exists!" % (img_path))
         else:

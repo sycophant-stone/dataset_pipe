@@ -1,0 +1,84 @@
+{% set daily_work_dir = '%s' % (data_dir) %}
+{% set daily_patches_int_work_dir = '%s_patches_int' % (data_dir) %}
+{% set dataset_path = '%s' % (baseline_dataset_dir) %}
+{% set daily_work_dir_parent = "/".join(daily_work_dir.split('/')[:-1]) %}
+{% set datset_dirname = daily_work_dir.split('/')[-1] %}
+{% set datset_patches_dirname = datset_dirname+'_patches_int' %}
+{% set caffe_python_dir = '%s' % (caffe_python_dir) %}
+{% set datset_subpatches_dirname = '%s_patches_int' %(daily_work_dir) %}
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/datasets_in_distribution
+      - {{daily_work_dir}}/datasets_in_distribution/JPEGImages
+      - {{daily_work_dir}}/datasets_in_distribution/Annotations
+
+- utils.shell.run_system_commands:
+    desc: 'build caffe for this epoch'
+    cwd: {{caffe_python_dir}}/build_{{datset_dirname}}
+    input:
+      cmd_lines:
+        - cmake ../
+        - make -j
+        - make pycaffe
+
+# - utils.shell.run_system_commands:
+#     desc: 'prepare the dataset distributions'
+#     cwd: {{daily_work_dir}}
+#     input:
+#       cmd_lines:
+#         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_9048/JPEGImages/* {{daily_work_dir}}/datasets_in_distribution/JPEGImages/
+#         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_9048/Annotations/* {{daily_work_dir}}/datasets_in_distribution/Annotations/
+#         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/17976_26904/JPEGImages/* {{daily_work_dir}}/datasets_in_distribution/JPEGImages/
+#         - cp /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/17976_26904/Annotations/* {{daily_work_dir}}/datasets_in_distribution/Annotations/
+- utils.data.multifilecopy:
+    desc: 'multi files copy'
+    input:
+      src_file_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_9048/JPEGImages/
+      dst_file_dir: {{daily_work_dir}}/datasets_in_distribution/JPEGImages/
+
+- utils.data.multifilecopy:
+    desc: 'multi files copy'
+    input:
+      src_file_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/120_9048/Annotations/
+      dst_file_dir: {{daily_work_dir}}/datasets_in_distribution/Annotations/
+
+- utils.data.multifilecopy:
+    desc: 'multi files copy'
+    input:
+      src_file_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/17976_26904/JPEGImages/
+      dst_file_dir: {{daily_work_dir}}/datasets_in_distribution/JPEGImages/
+
+- utils.data.multifilecopy:
+    desc: 'multi files copy'
+    input:
+      src_file_dir: /ssd/hnren/Data/dataset_pipe/newcropv3/statistic_img_dir/17976_26904/Annotations/
+      dst_file_dir: {{daily_work_dir}}/datasets_in_distribution/Annotations/
+
+# gen train,eva,test sets.
+- process.pascal_process.cls.run:
+    desc: 'gen pascal ImageSet/Main'
+    cwd: {{daily_work_dir}}/datasets_in_distribution/
+    input:
+      src_path: {{daily_work_dir}}/datasets_in_distribution
+
+- utils.shell.run_system_commands:
+    desc: 'creat list for pascal format'
+    cwd: {{daily_work_dir}}/datasets_in_distribution/
+    input:
+      cmd_lines:
+        - cp /ssd/hnren/Data/dataset_pipe/process/pascal_process/create_list.sh {{daily_work_dir}}/datasets_in_distribution/
+        - cp /ssd/hnren/Data/dataset_pipe/process/pascal_process/create_data.sh {{daily_work_dir}}/datasets_in_distribution/
+        - chmod a+x {{daily_work_dir}}/datasets_in_distribution/create_list.sh
+        - chmod a+x {{daily_work_dir}}/datasets_in_distribution/create_data.sh
+        - {{daily_work_dir}}/datasets_in_distribution/create_list.sh {{daily_work_dir}} datasets_in_distribution
+
+- utils.shell.run_system_commands:
+    desc: 'creat data for pascal format'
+    cwd: {{daily_work_dir}}
+    input:
+      cmd_lines:
+        - {{daily_work_dir}}/create_data.sh {{caffe_python_dir}} {{daily_work_dir}} datasets_in_distribution /ssd/hnren/Data/dataset_pipe/dataset_lib/labelmap_voc.prototxt

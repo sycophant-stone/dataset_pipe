@@ -1,0 +1,24 @@
+{% set daily_work_dir = '%s' % (data_dir) %}
+{% set daily_patches_int_work_dir = '%s_patches_int' % (data_dir) %}
+{% set dataset_path = '%s' % (baseline_dataset_dir) %}
+{% set daily_work_dir_parent = "/".join(daily_work_dir.split('/')[:-1]) %}
+{% set datset_dirname = daily_work_dir.split('/')[-1] %}
+{% set datset_patches_dirname = datset_dirname+'_patches_int' %}
+{% set caffe_python_dir = '%s' % (caffe_python_dir) %}
+{% set datset_subpatches_dirname = '%s_patches_int' %(daily_work_dir) %}
+
+---
+- utils.filesystem.ensure_dirs:
+    desc: 'create dirs'
+    input:
+      dirs:
+      - {{daily_work_dir}}/coco_format_res
+
+- process.transfer.pascal_to_coco.run:
+    desc: 'pascal format to coco'
+    cwd: {{daily_work_dir}}
+    input:
+      src_pascal_xml_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/Annotations
+      src_pascal_set_file_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/ImageSets/Main/train.txt
+      dst_coco_dir: {{daily_work_dir}}/coco_format_res
+
