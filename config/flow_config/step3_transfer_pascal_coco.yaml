@@ -22,3 +22,18 @@
       src_pascal_set_file_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/ImageSets/Main/train.txt
       dst_coco_dir: {{daily_work_dir}}/coco_format_res
 
+- process.transfer.pascal_to_coco.run:
+    desc: 'pascal format to coco'
+    cwd: {{daily_work_dir}}
+    input:
+      src_pascal_xml_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/Annotations
+      src_pascal_set_file_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/ImageSets/Main/test.txt
+      dst_coco_dir: {{daily_work_dir}}/coco_format_res
+
+- process.transfer.pascal_to_coco.run:
+    desc: 'pascal format to coco'
+    cwd: {{daily_work_dir}}
+    input:
+      src_pascal_xml_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/Annotations
+      src_pascal_set_file_path: /ssd/hnren/Data/dataset_pipe/newcropv3/datasets_in_distribution/ImageSets/Main/val.txt
+      dst_coco_dir: {{daily_work_dir}}/coco_format_res
